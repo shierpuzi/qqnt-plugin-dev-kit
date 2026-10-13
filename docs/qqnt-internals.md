@@ -12,7 +12,7 @@
 |---|---|
 | 怎么从零写一个插件（manifest v4 / 三种注入 / API） | [plugin-development.md](plugin-development.md) |
 | 怎么黑盒调试、探针、抓 IPC、真实鼠标 | [debugging.md](debugging.md) |
-| 最短上手路径 / 硬规则速查 | [`../agent_readme_zh.md`](../agent_readme_zh.md)（中文；英文版 [`../agent_readme.md`](../agent_readme.md)；人类入口 [`../README.md`](../README.md)） |
+| 最短上手路径 / 硬规则速查 | [`../AGENT_README_ZH.md`](../AGENT_README_ZH.md)（中文；英文版 [`../AGENT_README.md`](../AGENT_README.md)；人类入口 [`../README.md`](../README.md)） |
 | 反面案例：为什么插件拦不住"内置浏览器" | [`../examples/open-in-browser/README.md`](../examples/open-in-browser/README.md) |
 
 ---

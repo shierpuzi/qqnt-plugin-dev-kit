@@ -10,7 +10,7 @@
 | 调试插件怎么装、能抓什么、日志字段与轮转详解 | [`../plugins/dsh-debug-logger/README.md`](../plugins/dsh-debug-logger/README.md)（**本文不重复安装步骤**） |
 | QQ 9.9.33 目录/校验/加载器/原生与 JS 边界 | [qqnt-internals.md](qqnt-internals.md) |
 | 从零写插件（manifest v4 / 三种注入 / API） | [plugin-development.md](plugin-development.md) |
-| 最短上手路径 / 硬规则速查 | [`../agent_readme_zh.md`](../agent_readme_zh.md) |
+| 最短上手路径 / 硬规则速查 | [`../AGENT_README_ZH.md`](../AGENT_README_ZH.md) |
 
 ---
 
@@ -623,7 +623,7 @@ const timer = setInterval(function () {
 插件没生效
 ├─ 加载器有没有加载它？
 │   ├─ console.log 有 "loaded v…" / 设置页有它的条目 → 已加载，往下
-│   └─ 没有 → 查 manifest、slug 重名、disabled_plugins（[`../agent_readme_zh.md`](../agent_readme_zh.md) §3）
+│   └─ 没有 → 查 manifest、slug 重名、disabled_plugins（[`../AGENT_README_ZH.md`](../AGENT_README_ZH.md) §3）
 ├─ QQ 起不来 / 一启动就弹窗？
 │   └─ 是不是改了 <app> 下的文件 → qqnt-internals.md §2/§3
 ├─ errors.log 有没有你的报错？

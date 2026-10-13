@@ -23,7 +23,7 @@ QQ NT 的插件生态文档很少，而且大多数"经验"只能口口相传。
 3. 想探页面就把 JS 写进 <profile>/data/dsh-debug-logger/eval.txt，
    插件会在所有窗口里执行，结果写进 eval-result.log
 4. 详细流程读 docs/debugging.md；开发插件读 docs/plugin-development.md
-5. 给 agent 的最短路径读 agent_readme.md（英文）/ agent_readme_zh.md（中文）
+5. 给 agent 的最短路径读 AGENT_README.md（英文）/ AGENT_README_ZH.md（中文）
 ```
 
 `<profile>` 由环境变量 `LITELOADERQQNT_PROFILE` 决定；没设置时就是 LiteLoaderQQNT 加载器自己的根目录。
@@ -32,15 +32,15 @@ QQ NT 的插件生态文档很少，而且大多数"经验"只能口口相传。
 
 | 路径 | 内容 |
 |---|---|
-| [`agent_readme.md`](agent_readme.md) | **给 agent 的入口（英文）**：最短上手路径、硬规则 10 条、实测边界表、探针速查、与用户配合的测试流程、交付自检 |
-| [`agent_readme_zh.md`](agent_readme_zh.md) | 同上，中文版 |
+| [`AGENT_README.md`](AGENT_README.md) | **给 agent 的入口（英文）**：最短上手路径、硬规则 10 条、实测边界表、探针速查、与用户配合的测试流程、交付自检 |
+| [`AGENT_README_ZH.md`](AGENT_README_ZH.md) | 同上，中文版 |
 | [`docs/plugin-development.md`](docs/plugin-development.md) | 从零写一个 LLQQNT 插件：manifest、三种注入、API、常见配方、打包与安装（中文） |
 | [`docs/debugging.md`](docs/debugging.md) | 黑盒调试方法论：日志通道、eval 探针、真实鼠标事件、IPC 抓取、案例复盘（中文） |
 | [`docs/qqnt-internals.md`](docs/qqnt-internals.md) | QQ 9.9.33 内部机制实测：目录/校验/签名补丁/原生与 JS 的边界（中文） |
 | [`plugins/dsh-debug-logger/`](plugins/dsh-debug-logger/) | 调试日志插件（可直接安装，含 `README.md` 安装说明） |
 | [`plugins/README.md`](plugins/README.md) | 插件安装/禁用通用步骤 |
 | [`examples/open-in-browser/`](examples/open-in-browser/) | 反面案例：用插件拦"QQ 内置浏览器"为什么做不到 |
-| [`skills/qqnt-plugin-dev/`](skills/qqnt-plugin-dev/) | DSH skill（英文，`SKILL.md`）+ 中文版 `SKILL_zh.md` + 安装说明 |
+| [`skills/qqnt-plugin-dev/`](skills/qqnt-plugin-dev/) | DSH skill：**自包含** `SKILL.md`（英文，23 KB，无外链依赖）+ 中文版 `SKILL_ZH.md` + 安装说明；skill 目录内**内嵌**了调试插件（`plugins/dsh-debug-logger/`），装到本地即可离线用 |
 
 ## 三条最值得先读的结论
 

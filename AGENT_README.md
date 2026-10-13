@@ -1,7 +1,7 @@
-# agent_readme.md
+# AGENT_README.md
 
 **Read this file and you can start working.** It is for an agent picking up QQNT / LiteLoaderQQNT plugin
-development or troubleshooting. Human entry point: [README.md](README.md). Chinese version: [agent_readme_zh.md](agent_readme_zh.md).
+development or troubleshooting. Human entry point: [README.md](README.md). Chinese version: [AGENT_README_ZH.md](AGENT_README_ZH.md).
 
 - Verified environment: **QQ NT 9.9.33-52230 (x64)** + **LiteLoaderQQNT fork 5.2.1** + **Electron 40** + Windows (2026-10)
 - This is an **experience repository**, not official documentation. Every "measured" claim carries its evidence in
@@ -190,3 +190,9 @@ whether a fix actually works). **Expect several test rounds; do not try to finis
 - [ ] No replayable self-test script left behind
 - [ ] No personal data in the repository or in attached logs
 - [ ] Anything that touches QQ's own files: the user was told the risk and the rollback path
+- [ ] The user has been asked to verify the user-visible result (§4)
+- [ ] Native settings were checked before any of the above (§1)
+
+---
+
+> **Scope / portability**: written and tested for **DSH (DeepSeek Harness)** — tool names, the `ask_user_question` seam and the `eval.txt` workflow are DSH-specific. It has **not** been tested on other agent platforms; verify platform-specific parts in your own environment first.
