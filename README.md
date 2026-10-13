@@ -40,7 +40,7 @@ QQ NT 的插件生态文档很少，而且大多数"经验"只能口口相传。
 | [`plugins/dsh-debug-logger/`](plugins/dsh-debug-logger/) | 调试日志插件（可直接安装，含 `README.md` 安装说明） |
 | [`plugins/README.md`](plugins/README.md) | 插件安装/禁用通用步骤 |
 | [`examples/open-in-browser/`](examples/open-in-browser/) | 反面案例：用插件拦"QQ 内置浏览器"为什么做不到 |
-| [`skills/qqnt-plugin-dev/`](skills/qqnt-plugin-dev/) | DSH skill：**自包含** `SKILL.md`（英文，23 KB，无外链依赖）+ 中文版 `SKILL_ZH.md` + 安装说明；skill 目录内**内嵌**了调试插件（`plugins/dsh-debug-logger/`），装到本地即可离线用 |
+| [`skills/`](skills/README.md) | **DSH skill 家族（四个自包含模块）**：`qqnt-plugin-dev`（写插件）/ `qqnt-plugin-debug`（调试）/ `qqnt-loader-install`（安装与签名补丁）/ `qqnt-capability-limits`（能力边界）；每块含英文 `SKILL.md` + 中文 `SKILL_ZH.md`，调试模块内嵌调试插件，四块 description 均 ≤500 字符；安装与作者约束见 `skills/README.md` |
 
 ## 三条最值得先读的结论
 
@@ -60,7 +60,7 @@ QQ NT 的插件生态文档很少，而且大多数"经验"只能口口相传。
 - **一轮一个小而决定性的测试**："点一条链接，然后选：① 进了系统浏览器 ② 弹出 QQ 内置浏览器 ③ 没反应"，而不是"请帮我全测一遍"。
 - 任何会**改变用户客户端**的动作（装插件、改文件、重启 QQ）先说明，并给出回滚方式。
 
-> **适配范围**：本仓库的 skill 针对 **DSH（DeepSeek Harness）** 编写与实测（工具名、`ask_user_question`、eval 调试流程）；**未在其它的 agent 平台上测试过**，其它平台请先在自己环境里验证再套用。
+> **适配范围**：本仓库的四个 skill 模块针对 **DSH（DeepSeek Harness）** 编写与实测（工具名、`ask_user_question`、eval 调试流程）；**未在其它的 agent 平台上测试过**，其它平台请先在自己环境里验证再套用。
 
 ## 免责声明（务必阅读）
 
