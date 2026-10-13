@@ -1,0 +1,17 @@
+{
+    "manifest_version": 4,
+    "type": "extension",
+    "name": "链接外部打开",
+    "slug": "open-in-browser",
+    "description": "QQ 里所有 http(s) 链接都交给系统默认浏览器打开，不再走内置浏览器和拦截页。",
+    "version": "2.1.0",
+    "authors": [
+        { "name": "dsh" }
+    ],
+    "platform": ["win32", "darwin", "linux"],
+    "injects": {
+        "main": "./main.js",
+        "preload": "./preload.js",
+        "renderer": "./renderer.js"
+    }
+}
