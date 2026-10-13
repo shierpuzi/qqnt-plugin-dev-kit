@@ -40,6 +40,7 @@ QQ NT 的插件生态文档很少，而且大多数"经验"只能口口相传。
 | [`plugins/dsh-debug-logger/`](plugins/dsh-debug-logger/) | 调试日志插件（可直接安装，含 `README.md` 安装说明） |
 | [`plugins/README.md`](plugins/README.md) | 插件安装/禁用通用步骤 |
 | [`examples/open-in-browser/`](examples/open-in-browser/) | 反面案例：用插件拦"QQ 内置浏览器"为什么做不到 |
+| [`examples/merit-counter/`](examples/merit-counter/) | **可用样例**：左侧栏「功德 +1」按钮（skill 实测产物，含 DOM 与持久化实测数据） |
 | [`skills/`](skills/README.md) | **DSH skill 家族（四个自包含模块）**：`qqnt-plugin-dev`（写插件）/ `qqnt-plugin-debug`（调试）/ `qqnt-loader-install`（安装与签名补丁）/ `qqnt-capability-limits`（能力边界）；每块含英文 `SKILL.md` + 中文 `SKILL_ZH.md`，调试模块内嵌调试插件，四块 description 均 ≤500 字符；安装与作者约束见 `skills/README.md` |
 
 ## 三条最值得先读的结论

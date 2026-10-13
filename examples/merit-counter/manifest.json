@@ -1,0 +1,11 @@
+{
+    "manifest_version": 4,
+    "name": "功德计数器",
+    "slug": "merit-counter",
+    "description": "在左侧栏加一个按钮，点一下弹出 +1 与累计次数（电子木鱼）",
+    "version": "1.0.0",
+    "authors": [{ "name": "qqnt-plugin-dev-kit" }],
+    "platform": ["win32"],
+    "type": "extension",
+    "injects": { "renderer": "./renderer.js" }
+}

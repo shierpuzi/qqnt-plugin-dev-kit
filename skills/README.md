@@ -46,3 +46,4 @@ skill installs standalone without fetching anything.
 - **Self-contained**: no network fetch, no dependency on another skill being installed. Relative paths mentioned in a
   skill resolve against the base directory DSH reports in that skill's `<skill_resources>` block.
 - Keep each module focused; if a module outgrows one topic, split it again rather than growing the description.
+- **Disclaimer source of truth**: the full human-readable legal notice lives in [../README.md](../README.md) under 免责声明. Each module inlines a compact version (§0) so it stays self-contained; if the notice changes, update the root README first, then mirror it into the modules.

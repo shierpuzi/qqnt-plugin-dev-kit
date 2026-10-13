@@ -27,7 +27,7 @@ Paths written `<like this>` are placeholders. **Resolve relative paths against t
 
 ## 0. Disclaimer — send this to the user once, before you start
 
-**When:** once, at the first QQNT-plugin task **in the current conversation**. Follow-up questions in the same
+**When:** once, at the first QQNT-plugin task **in the current conversation** — first check the conversation above: **if the notice already appears there, do not repeat it.** Follow-up questions in the same
 conversation do **not** re-trigger it. A **new conversation** gets it again. Translate it if the user writes another
 language.
 
@@ -51,6 +51,9 @@ language.
 Say in the same message that **plugin work needs the user's cooperation**: most facts are only observable on their
 running client, so expect several short test rounds (the *debug* skill covers the ask-the-user loop).
 
+**Before writing any code, load `qqnt-capability-limits`.** It answers the two questions that decide whether this
+plugin should exist at all: does QQ already have a native setting for it, and is the behaviour even reachable from
+the JS layer. Skipping it is how an afternoon gets spent on something QQ already does.
 **Version scope.** Everything marked `[measured]` was verified on **QQ NT 9.9.33-52230 + LiteLoaderQQNT 5.2.1 +
 Electron 40 + Windows** (2026-10). On any other version, treat every `[measured]` claim as a hypothesis and
 re-verify with probes before acting on it.
@@ -171,6 +174,44 @@ document.addEventListener("click", (e) => {
 
 ---
 
+### 3.6 Worked example: a button in the left sidebar **[measured]**
+
+Measured on 9.9.33: the left rail is `.sidebar__nav` (`display:flex; flex-direction:column; align-items:center`,
+about 52 px wide) holding ~8 `.nav-item` children (36×36; hidden ones measure 0×0). Append **your own clone** of a
+visible `.nav-item` so QQ's styling and hover come for free — and remember a `cloneNode` copies classes but **not**
+event listeners, so the clone is yours alone:
+
+```js
+(() => {
+  if (window.__demoLoaded || location.hash.indexOf("/main") < 0) return;
+  window.__demoLoaded = true;
+  let n = parseInt(localStorage.getItem("demo:n") || "0", 10) || 0;   // survives QQ restarts [measured]
+  function install() {
+    const nav = document.querySelector(".sidebar__nav");
+    if (!nav) return false;
+    if (nav.querySelector(".demo-btn")) return true;
+    const tpl = [...nav.querySelectorAll(".nav-item")].find(e => e.getBoundingClientRect().height > 0);
+    const btn = tpl ? tpl.cloneNode(true) : document.createElement("div");
+    if (!tpl) btn.className = "nav-item";
+    btn.classList.remove("nav-item-more");
+    btn.classList.add("demo-btn");
+    btn.setAttribute("aria-label", "demo +1");
+    btn.textContent = "＋1";
+    btn.addEventListener("click", (e) => {
+      e.preventDefault(); e.stopImmediatePropagation();     // keeps QQ's rail-level handlers out
+      n++; localStorage.setItem("demo:n", String(n));
+      btn.title = "共点击了 " + n + " 次";
+    }, true);
+    nav.appendChild(btn);
+    return true;
+  }
+  if (!install()) { const t = setInterval(() => { if (install()) clearInterval(t); }, 500); setTimeout(() => clearInterval(t), 60000); }
+})()
+```
+
+A complete working plugin built this way is in the repository at `examples/merit-counter/` (button in the rail,
+click pops “+1 ・ 共点击了 N 次”, count persisted). Prototype it in the debug skill's `eval.txt` REPL first — no
+restart per iteration — then package it as a renderer plugin.
 ## 4. Delivery discipline
 
 - Never write personal data (QQ numbers, chat content, `rkey`/tokens, real usernames, real absolute paths → use

@@ -167,6 +167,42 @@ document.addEventListener("click", (e) => {
 
 ---
 
+### 3.6 实操样例：左侧栏按钮 **[实测]**
+
+9.9.33 实测：左侧栏是 `.sidebar__nav`（`display:flex; flex-direction:column; align-items:center`，约 52 px 宽），
+内含约 8 个 `.nav-item`（36×36；被隐藏的如「频道/更多」是 0×0）。**克隆一个可见的 `.nav-item` 再追加**，QQ 自己的
+样式与 hover 就免费得到了 —— 注意 `cloneNode` 只复制 class、**不复制事件监听器**，所以克隆体完全归你：
+
+```js
+(() => {
+  if (window.__demoLoaded || location.hash.indexOf("/main") < 0) return;
+  window.__demoLoaded = true;
+  let n = parseInt(localStorage.getItem("demo:n") || "0", 10) || 0;   // 跨 QQ 重启保留 [实测]
+  function install() {
+    const nav = document.querySelector(".sidebar__nav");
+    if (!nav) return false;
+    if (nav.querySelector(".demo-btn")) return true;
+    const tpl = [...nav.querySelectorAll(".nav-item")].find(e => e.getBoundingClientRect().height > 0);
+    const btn = tpl ? tpl.cloneNode(true) : document.createElement("div");
+    if (!tpl) btn.className = "nav-item";
+    btn.classList.remove("nav-item-more");
+    btn.classList.add("demo-btn");
+    btn.setAttribute("aria-label", "demo +1");
+    btn.textContent = "＋1";
+    btn.addEventListener("click", (e) => {
+      e.preventDefault(); e.stopImmediatePropagation();     // 挡住 QQ 在轨道层级的处理器
+      n++; localStorage.setItem("demo:n", String(n));
+      btn.title = "共点击了 " + n + " 次";
+    }, true);
+    nav.appendChild(btn);
+    return true;
+  }
+  if (!install()) { const t = setInterval(() => { if (install()) clearInterval(t); }, 500); setTimeout(() => clearInterval(t), 60000); }
+})()
+```
+
+用这种方式做出来的完整可用插件在仓库 `examples/merit-counter/`（左栏按钮、点击弹「+1　共点击了 N 次」、计数持久化）。
+先在调试 skill 的 `eval.txt` 里原型验证（每轮迭代不用重启），再打包成 renderer 插件。
 ## 4. 交付纪律
 
 - 绝不写入个人数据（QQ 号、聊天内容、`rkey`/token、真实用户名、真实绝对路径 → 使用

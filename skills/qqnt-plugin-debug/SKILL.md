@@ -22,7 +22,7 @@ One of four sibling skills: `qqnt-plugin-dev` (writing one), **`qqnt-plugin-debu
 
 ## 0. Disclaimer — send once, before you start
 
-**When:** once, at the first QQNT-plugin task **in the current conversation**; a new conversation gets it again.
+**When:** once, at the first QQNT-plugin task **in the current conversation** — first check the conversation above: **if the notice already appears there, do not repeat it.** A new conversation gets it again.
 
 > **Disclaimer.** This work is provided for **education and research on software architecture and JavaScript
 > injection techniques only**. By using it you accept: **do not violate software protection law** (no
@@ -90,6 +90,13 @@ Write one JS expression into `eval.txt`; within ~1 s it runs in **every** window
   trouble.
 - Before finishing a session: clear `eval.txt`.
 
+**Prototype-then-package loop (no restart per iteration)** **[measured]**:
+
+1. Write the renderer logic you intend to ship into `eval.txt` — it runs in the main window within a second.
+2. Verify it with a **read-only** probe (does the node exist, right size, right parent? §3 probe 5).
+3. When it looks right, copy the same file to `<profile>\plugins\<slug>\renderer.js` with a `manifest.json`
+   (`injects.renderer`), restart QQ once, and confirm your own log line in `console.log`.
+4. **Clear `eval.txt`** so the prototype cannot replay.
 ## 3. Probes (read-only — write into `eval.txt`)
 
 ```js

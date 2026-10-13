@@ -20,7 +20,7 @@ One of four sibling skills: `qqnt-plugin-dev` (writing a plugin), `qqnt-plugin-d
 
 ## 0. Disclaimer — send once, before you start, and repeat the risk before any patch
 
-**When:** once, at the first QQNT-plugin task **in the current conversation**; a new conversation gets it again.
+**When:** once, at the first QQNT-plugin task **in the current conversation** — first check the conversation above: **if the notice already appears there, do not repeat it.** A new conversation gets it again.
 
 > **Disclaimer.** This work is provided for **education and research on software architecture and JavaScript
 > injection techniques only**. By using it you accept: **do not violate software protection law** (no
