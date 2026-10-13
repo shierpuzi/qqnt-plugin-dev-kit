@@ -91,6 +91,8 @@ QQ 的插件设置）。
 3. 看起来对了，就把同一个文件复制到 `<profile>\plugins\<slug>\renderer.js`，配一个 `manifest.json`
    （`injects.renderer`），重启一次 QQ，在 `console.log` 里确认自己的日志行。
 4. **清空 `eval.txt`**，别让原型被重放。
+
+**热替换已装好的 UI 插件** **[实测]**：给注入的节点打版本标记（`btn.dataset.ver`），让 `install()` 先移除旧的标记节点，再把新代码贴进 `eval.txt` —— 运行中的客户端约 1 秒内换到新版本，不用重启。等代码定稿后再重启一次 QQ（那也是验证**打包版**而不是原型的时候）。
 ## 3. 探针（只读 —— 写进 `eval.txt`）
 
 ```js

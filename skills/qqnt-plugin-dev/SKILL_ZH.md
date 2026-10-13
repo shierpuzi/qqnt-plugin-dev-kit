@@ -201,6 +201,13 @@ document.addEventListener("click", (e) => {
 })()
 ```
 
+**把它做成真正的玩具**（均为 9.9.33 实测）：
+
+- **图标**：导航项的图标是内联 `<svg>` 且**不用** `currentColor`；你自己的 SVG 用 `currentColor` 就会自动跟随主题（实测浅色主题下 `color: rgb(4,30,42)`）。
+- **音效不需要音频文件**：真实用户点击本身就是合法手势，所以在 click 处理器里 `new (window.AudioContext)()` 可用；三角波快速下滑 + 带通噪声瞬态就很像木鱼"笃"声，无需下载或随包发布任何资源。
+- **常驻徽标**：QQ 自己的未读徽标类是 `q-badge q-badge__red`；在克隆出来的 `.nav-item` 里放一个绝对定位的 `<span>` 更简单且不依赖主题（实测右上角 23×13 px）。
+- **长按清零**：`pointerdown` + 700 ms 定时器，在 `pointerup` / `pointercancel` / `pointerleave` 清除；用时间戳（`Date.now() - lastLongPress < 600`）吃掉紧随其后的那次 click。
+- **迭代时热替换**：给注入节点打版本标记（`btn.dataset.ver = "v2"`），`install()` 里先移除旧标记节点，再把新代码贴进 `eval.txt` —— 运行中的客户端约 1 秒内换新，**不用重启**。
 用这种方式做出来的完整可用插件在仓库 `examples/merit-counter/`（左栏按钮、点击弹「+1　共点击了 N 次」、计数持久化）。
 先在调试 skill 的 `eval.txt` 里原型验证（每轮迭代不用重启），再打包成 renderer 插件。
 ## 4. 交付纪律

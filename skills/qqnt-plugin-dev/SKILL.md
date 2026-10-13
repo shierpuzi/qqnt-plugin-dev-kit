@@ -209,6 +209,20 @@ event listeners, so the clone is yours alone:
 })()
 ```
 
+**Extending it into a real toy** (all measured on 9.9.33):
+
+- **Icon**: nav-item icons are inline `<svg>` **without** `currentColor`; use `currentColor` in your own SVG and it
+  follows the theme automatically (measured `color: rgb(4,30,42)` on the light theme).
+- **Sound with no asset file**: a real user click is a valid gesture, so `new (window.AudioContext)()` inside the
+  click handler works. A short triangle-wave sweep plus a band-passed noise burst reads as a wooden knock — nothing
+  to download or ship.
+- **Persistent badge**: QQ's own unread badge classes are `q-badge q-badge__red`; a plain absolutely-positioned
+  `<span>` inside your cloned `.nav-item` is simpler and theme-independent (measured 23×13 px at the top-right).
+- **Long press to reset**: `pointerdown` + a 700 ms timer, cleared on `pointerup` / `pointercancel` / `pointerleave`;
+  suppress the click that follows with a timestamp check (`Date.now() - lastLongPress < 600`).
+- **Hot-replace while iterating**: mark injected nodes with a version (`btn.dataset.ver = "v2"`), have `install()`
+  remove any older marker, then paste the new source into `eval.txt` — the running client swaps in about a second
+  with **no restart**.
 A complete working plugin built this way is in the repository at `examples/merit-counter/` (button in the rail,
 click pops “+1 ・ 共点击了 N 次”, count persisted). Prototype it in the debug skill's `eval.txt` REPL first — no
 restart per iteration — then package it as a renderer plugin.

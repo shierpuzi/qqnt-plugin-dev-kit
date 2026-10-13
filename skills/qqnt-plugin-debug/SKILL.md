@@ -97,6 +97,11 @@ Write one JS expression into `eval.txt`; within ~1 s it runs in **every** window
 3. When it looks right, copy the same file to `<profile>\plugins\<slug>\renderer.js` with a `manifest.json`
    (`injects.renderer`), restart QQ once, and confirm your own log line in `console.log`.
 4. **Clear `eval.txt`** so the prototype cannot replay.
+
+**Hot-replacing an already-installed UI plugin** **[measured]**: version the nodes you inject (`btn.dataset.ver`),
+make `install()` remove any older marker, and paste the new source into `eval.txt` — the running client swaps to the
+new version in ~1 s with no restart. Only restart QQ once the code is final (that is also when you verify the
+packaged plugin, not just the prototype).
 ## 3. Probes (read-only — write into `eval.txt`)
 
 ```js
