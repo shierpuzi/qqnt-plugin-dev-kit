@@ -5,7 +5,7 @@ description: >
   measured native-shell vs JS boundary (what ipcMain hooks, navigation hooks and window.open can and cannot
   intercept), why QQ's internal browser and its "open in default browser" toolbar button are unreachable from a
   plugin, and how to find and flip QQ's own native setting instead. Triggers: 为什么插件拦不住, 内置浏览器,
-  qqBrowser, QQ 原生设置, can a plugin hook this, QQNT plugin limitations.
+  qqBrowser, QQ 原生设置, can a plugin hook this, QQNT plugin limitations, 拖窗口.
 license: MIT
 ---
 
@@ -31,7 +31,7 @@ license: MIT
 > ② 侵犯著作权，包括规避技术措施（刑法第 217 条）；③ 破坏计算机信息系统（刑法第 286 条）。
 
 **版本范围。** 所有标注 `[实测]` 的内容均在 **QQ NT 9.9.33-52230 + LiteLoaderQQNT 5.2.1 +
-Electron 40 + Windows**（2026-10）上验证通过。换到别的版本，依赖这些结论前请重新验证。
+Electron 40（Chromium 144）+ Windows**（2026-10）上验证通过。换到别的版本，依赖这些结论前请重新验证。
 
 ---
 
@@ -51,7 +51,7 @@ Electron 40 + Windows**（2026-10）上验证通过。换到别的版本，依�
   if (!leaf) return "not on this page";
   const item = leaf.closest(".panel-main") || leaf.parentElement.parentElement;
   const sw = item.querySelector(".q-switch[role=switch]");
-  return sw ? { checked: sw.getAttribute("aria-checked") } : "no switch"; })()
+  return sw ? { checked: sw.getAttribute("aria-checked"), painted: sw.classList.contains("is-active") } : "no switch"; })()
 ```
 
 ```js
@@ -62,6 +62,11 @@ Electron 40 + Windows**（2026-10）上验证通过。换到别的版本，依�
     sw.dispatchEvent(new E(ev, { bubbles: true, cancelable: true, view: window, button: 0 })); }
   return { after: sw.getAttribute("aria-checked") }; })()
 ```
+
+**[实测]** 这些 `.q-switch` 组件就是普通页面 DOM，它们**画出来**的开关状态来自 class **`is-active`**，而不是
+`aria-checked`：只改 `aria-checked` 会让开关看起来永远是关的，尽管它的值其实已经对了。两个都读；如果你要自己做开关，
+就用 `classList.toggle("is-active", on)`（`qqnt-plugin-dev` §3.7 里有正确的结构以及设置页的其它坑）。
+插件也可以通过 loader 的 `onSettingWindowCreated` 钩子在设置窗口里挂自己的面板。
 
 务必告诉用户**你改了哪一项设置、以及怎么改回去**。
 
@@ -82,6 +87,25 @@ Electron 40 + Windows**（2026-10）上验证通过。换到别的版本，依�
 但无法拦截或阻止它们。事后补救（先让 QQ 的页面出现，再去驱动 QQ 自己的工具栏按钮）又慢又存在竞态
 **[实测]** —— 不要把它当作修复方案来承诺。
 
+### 2.1 第三种情况：可观察但不可拦截 —— 原生窗口拖动 **[实测]**
+
+有些原生行为无法被*捕获*成事件，却留下了插件**确实能读**的信号。原生窗口拖动
+（`app-region: drag`，实测于 1061×40 的顶栏和 52×581 的左侧竖条）就是标准例子：
+
+| 问题 | 实测答案 |
+|---|---|
+| 拖动时渲染进程能收到 pointer 事件吗？ | **收不到** —— `pointerdown` / `pointermove` / `pointerup` 计数**全为 0**。`app-region: drag` 在页面看到之前就把拖动交给了操作系统。 |
+| 拖动期间渲染进程还在跑吗？ | **在跑** —— 一次 12 秒的拖动中：**239 次心跳**、最长卡顿 **0 ms**，并且窗口位移 **214 px** 被正确读到。 |
+
+所以**你无法拦截这次拖动**，但你*可以*观察它：轮询 `window.screenX` / `window.screenY`，由差值反推速度 —— 这足以
+驱动「拖动窗口」的音效或视觉反馈，而指针监听器在这里永远做不到。把它当作边界上的第三类：
+
+- ❌ **不可拦截** —— 没有 pointer / preventDefault 的路径
+- ✅ **可观察** —— 仍然存在一个可轮询的信号
+
+当一个功能看起来「够不着」时，先找找有没有这类信号，再报一个干脆的「不行」：诚实的结论是
+「拦不住、但能观察」，而这往往仍然能满足用户的目标。
+
 ---
 
 ## 3. 能力表 **[实测]**
@@ -97,9 +121,11 @@ Electron 40 + Windows**（2026-10）上验证通过。换到别的版本，依�
 | 包裹新注册的 `ipcMain` 处理器 | ✅ 插件主进程代码先于 QQ 的应用代码执行 |
 | 包裹已注册的 invoke 处理器 | ✅ 通过 `ipcMain._invokeHandlers` / `_events`（内部 API） |
 | 阻止 QQ 打开内置浏览器，或其“外部打开”图标 | ❌ 原生外壳（§2） |
+| 响应**原生窗口拖动**（拖动时给音效/反馈） | ⚠️ 不可拦截 —— 没有 pointer 事件；改为轮询 `window.screenX/screenY`（§2.1） |
 | 替换页面的 `window.ipcRenderer` | ❌ 冻结的 contextBridge 对象 |
 | 注入 `qqBrowser.html`（内置浏览器外壳 UI） | ✅ 仅限主进程 `webContents.executeJavaScript` |
 | 修改 QQ 自己的设置 | ✅ 通过驱动设置 UI（`.q-switch`，§1）—— 而不是盲写它的配置文件 |
+| 在 QQ 设置窗口里加自己的面板 | ✅ `onSettingWindowCreated`（loader 钩子），面板内 DOM 归你（`qqnt-plugin-dev` §3.7） |
 | 阻止 QQ 更新 / 悄悄改它的文件 | ⚠️ 有 RSA 校验；要提醒用户并给出回滚方案（`qqnt-loader-install`） |
 
 ---

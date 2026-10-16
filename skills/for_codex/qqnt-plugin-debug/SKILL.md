@@ -5,7 +5,7 @@ description: >
   exception, window-creation and IPC logs with 5 MB rotation), drive its eval.txt REPL that runs JS in every window,
   run DOM hit-test and visibility probes, capture IPC channels including already-registered handlers, inject real
   mouse input, and work through the measured pitfalls catalogue. Triggers: 插件不生效, 插件调试, QQNT 插件排错,
-  eval.txt, debug QQ plugin, background plugin 点不到.
+  eval.txt, debug QQ plugin, background plugin 点不到, 改设置要重启.
 license: MIT
 ---
 
@@ -30,8 +30,8 @@ license: MIT
 > 在中国大陆，下列行为可能构成犯罪：① 提供侵入、非法控制计算机信息系统的程序、工具（刑法第 285 条第 3 款）；
 > ② 侵犯著作权，包括规避技术保护措施（刑法第 217 条）；③ 破坏计算机信息系统（刑法第 286 条）。
 
-**版本范围。** `[实测]` 事实验证于 **QQ NT 9.9.33-52230 + LiteLoaderQQNT 5.2.1 + Electron 40 +
-Windows**（2026-10）。其它环境请先重新探测。
+**版本范围。** `[实测]` 事实验证于 **QQ NT 9.9.33-52230 + LiteLoaderQQNT 5.2.1 + Electron 40
+（Chromium 144）+ Windows**（2026-10）。其它环境请先重新探测。
 
 **提前告诉用户：这会分成几轮短交互** —— 见 §7。
 
@@ -77,6 +77,20 @@ QQ 的插件设置）。
 
 - §3 的探针都是**只读的**（它们只检查 DOM/bridge 并返回数据）。把它们留在
   `eval.txt` 里是安全的。
+- **`eval.txt` 会在*每个*窗口同时执行 —— 因此变更性脚本会并发跑 N 次** **[实测]**：一次运行中窗口 A 写了配置，
+  窗口 B 又写了另一个值，两者互相覆盖，读回值已经不可信。如果脚本必须改状态，就让它**显式识别自己是哪个窗口**
+  并在其它窗口直接跳过，或者只让目标窗口动手：
+
+  ```js
+  // 显式窗口身份 —— 侧栏只存在于主窗口 [实测]
+  // （用 IIFE，这样无论你的执行器是否允许顶层 return，这段代码都安全）
+  (() => {
+    if (!document.querySelector(".sidebar__nav")) return { skip: true, at: location.href };
+    /* … 必须且只能执行一次的变更 … */
+  })()
+  ```
+
+  注意这条规则是双向的：上面的身份判断是用来*决定在哪里执行变更*的。它**不是**存活探针 —— 见坑 14。
 - 任何**点击、赋值、调用 IPC 方法、导航或改变 QQ 状态**的代码，必须在跑完后**立刻从
   `eval.txt` 中删除** —— 不要“留着下次用”。
 - 为什么这不是可选项 **[实测]**：该插件过去每次 QQ 启动都会重放 `eval.txt` 里已有的内容；
@@ -93,6 +107,14 @@ QQ 的插件设置）。
 4. **清空 `eval.txt`**，别让原型被重放。
 
 **热替换已装好的 UI 插件** **[实测]**：给注入的节点打版本标记（`btn.dataset.ver`），让 `install()` 先移除旧的标记节点，再把新代码贴进 `eval.txt` —— 运行中的客户端约 1 秒内换到新版本，不用重启。等代码定稿后再重启一次 QQ（那也是验证**打包版**而不是原型的时候）。
+
+**要更新一个被 `import` 的 ESM 模块：重启 QQ，别跟缓存较劲** **[实测]**。`import()` 按 URL 缓存模块，所以磁盘上的
+文件改了、拿回来的还是旧模块。最直觉的绕法 —— 加查询串破缓存
+`import("local://profile/plugins/my-plugin/x.js?v=" + Date.now())` —— 在沙箱窗口里**会失败**：在 `about:blank`
+窗口里它抛出 `Access to script … blocked by CORS policy … only supported for protocol schemes: cacheimg, chrome, …`。
+`local://` 资源在那类窗口里根本不可用。对一个确实需要反复迭代的模块，可靠循环是：改文件 → **重启 QQ** → 验证。
+把「快速迭代」留给*实现本身*（贴进 `eval.txt`，它每次写入都会重新求值，不受 ESM 缓存影响），把重启留给打包好的文件。
+
 ## 3. 探针（只读 —— 写进 `eval.txt`）
 
 ```js
@@ -207,10 +229,24 @@ public class M {
 12. **让证据抗轮转**：在 5 MB→2 MB 轮转把你关心的行丢掉之前，先把 `console.log` / `errors.log` 拷出来。
 13. **沉默的插件不等于坏掉的插件**：`setInterval` + `querySelector` 这类写法会把选择器未命中完全吞掉。
     永远把“是否命中”的计数和“是否改变了什么”的测量放在一起。
+14. **选择器不存在 ≠ 窗口已死 —— 绝不要用元素存在性做存活探针** **[实测]**。曾用
+    `if (!document.querySelector(".sidebar__nav")) return {skip:true}` 来判断「这个窗口没响应」；但 QQ 路由切到
+    `#/main/message` 时侧栏会短暂卸载，于是**健康**窗口也报 `skip`。这个假读数让我**两次**错误地宣布主窗口被卡死。
+    要判断窗口是否存活，应让*窗口自己*打日志（`console.error("[probe] here", …)`），再看 `console.log` 里有没有出现
+    那一行 —— 那才是来自窗口内部的**正向**信号。元素不存在只能说明你查看的那一瞬间 DOM 的状态。
+15. **`eval.txt` 会在每个窗口并发执行** —— 变更性脚本会跑 N 次，窗口之间还可能互相覆盖写入（§2）。给脚本加显式的
+    窗口身份守卫，或把它限制在单个窗口。如果读回值自相矛盾，先怀疑这一点，再怀疑 QQ。
+16. **`local://` 在沙箱窗口里不可用** —— 在 `about:blank` 窗口里
+    `import("local://profile/…/x.js?v=" + Date.now())` 会因 CORS 策略报错（§2）。要更新 ESM 模块，重启 QQ。
 
 ## 7. 与用户配合（问询）—— 多用问询工具
 
 大多数事实只有在你用户**正在运行**的客户端上才能观察到。**预期会有好几轮短交互；不要试图一次做完。**
+
+**不要用自己的探针读数宣布完成。** 你的探针回答的是「DOM 变了吗」，不是「人用起来行不行」；
+**用户的一次真实操作经常能发现探针测不出的问题**（开关永远不重绘、声音根本不出、点击落下了但用户在意的事情没发生）。
+凭一个绿色探针就汇报「完成」，正是坏插件被发出去的方式 —— 请让用户执行那个动作并描述他**实际看到**了什么，
+把用户的观察当作结论，而不是你仪器的读数。
 
 - **在 Codex 上**：当本次会话提供 **`request_user_input`** 工具时，优先用它。它一次呈现 1–3 个问题，
   每个问题 2–3 个互斥选项 —— 把推荐项放第一位，并给它的标签加上 `(Recommended)` 后缀；客户端会自动
@@ -222,7 +258,7 @@ public class M {
   具体 `question`，以及带一行说明的 `options`（推荐项在前）；当可能多选时设 `multi_select: true`。用户
   也可以用 `custom` 自由作答或跳过某一项；`mode: timed` + `timeout` 即非阻塞变体。由别的 agent 拥有的
   存活的子 agent **不能**提问 —— 它必须把未决问题写进自己的最终结果，由主 agent/Lead 来问。
-- **在其它 agent 平台上**：检查你自己环境里有没有等价能力（elicitation / human-in-the-loop 工具 /
+- **在其它 agent 平台上**：检查你自己的环境里有没有等价能力（elicitation / human-in-the-loop 工具 /
   审批提示）；如果没有，就写出确切的测试步骤以及需要回报什么。
 - **一轮一个小而决定性的测试。** 不是“请把所有东西测一遍”，而是：“点一个聊天里的链接，然后选
   ① 用我的系统浏览器打开 ② 出现 QQ 内置浏览器 ③ 什么都没发生”。

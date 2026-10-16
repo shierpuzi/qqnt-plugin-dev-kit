@@ -1,11 +1,11 @@
 ---
 name: qqnt-plugin-dev
 description: >
-  Write, modify or review a LiteLoaderQQNT / QQNT plugin for the QQ NT desktop client on Windows: manifest v4, what
-  the main / preload / renderer worlds each can touch, hooks and LiteLoader APIs, a minimum working plugin, common
-  recipes, and the pre-delivery checklist. Carries the mandatory disclaimer and the iron rules (check QQ's own native
+  Write, modify or review a LiteLoaderQQNT / QQNT plugin for the QQ NT client on Windows: manifest v4, what
+  the main / preload / renderer worlds each can touch, hooks and LiteLoader APIs, a minimum working plugin, recipes,
+  and the pre-delivery checklist. Carries the mandatory disclaimer and the iron rules (check QQ's own native
   settings first; confirm the JS layer is even involved). Triggers: LiteLoaderQQNT, LLQQNT, QQNT 插件,
-  LiteLoader 插件, write a QQNT plugin, QQ 插件 manifest.
+  LiteLoader 插件, write a QQNT plugin, QQ 插件 manifest, 设置不生效, 开关点不动.
 license: MIT
 ---
 
@@ -55,7 +55,7 @@ running client, so expect several short test rounds (the *debug* skill covers th
 plugin should exist at all: does QQ already have a native setting for it, and is the behaviour even reachable from
 the JS layer. Skipping it is how an afternoon gets spent on something QQ already does.
 **Version scope.** Everything marked `[measured]` was verified on **QQ NT 9.9.33-52230 + LiteLoaderQQNT 5.2.1 +
-Electron 40 + Windows** (2026-10). On any other version, treat every `[measured]` claim as a hypothesis and
+Electron 40 (Chromium 144) + Windows** (2026-10). On any other version, treat every `[measured]` claim as a hypothesis and
 re-verify with probes before acting on it.
 
 ---
@@ -100,7 +100,7 @@ A plugin folder is picked up by directory name and manifest `slug`; there is no 
   "slug": "my-plugin",
   "description": "what it does",
   "version": "1.0.0",
-  "authors": [{ "name": "you" }],
+  "authors": [{ "name": "you", "link": "https://github.com/you" }],
   "platform": ["win32"],
   "type": "extension",
   "dependencies": ["other-slug"],
@@ -109,6 +109,16 @@ A plugin folder is picked up by directory name and manifest `slug`; there is no 
 ```
 
 - `type` is `extension | theme | framework`; the loader does **not** filter by it **[measured]**.
+- **`authors` entries need `name` *and* `link`** **[measured]** — the loader's own `manifest.schema.json`
+  (shipped in the LiteLoaderQQNT release folder next to its `package.json`; read it there, because the copy deployed
+  under `<app>\LiteLoaderQQNT\` may hold only `src/`) declares `authors.items.required = ["name","link"]`.
+  Omitting `link` still loads, but it is out of schema and QQ's plugin list renders each author as a clickable
+  link, so the entry is dead.
+- **`repository` is what the plugin list links to** **[measured]** (`manifest.repository.{repo,branch}` →
+  `https://github.com/<repo>/tree/<branch>`); add it if this plugin will ever be listed:
+  `"repository": { "repo": "you/my-plugin", "branch": "main", "release": { "tag": "1.0.0", "url": "my-plugin.zip" } }`.
+  `branch` is required once `repository` is present; under `release`, `tag` is required and `url` is the **release
+  asset file name** (leave it out to download the tag's source archive).
 - `dependencies` fixes **load order only** — it does **not** install the dependency **[measured]**.
 - Two folders with the same `slug` → only one loads (whichever the scan reaches last) **[measured]**. Check for
   duplicates before debugging a "dead" plugin.
@@ -163,7 +173,22 @@ document.addEventListener("click", (e) => {
 ### 3.5 Recipes
 
 - **Inject CSS**: renderer plugin, append a `<style>` on load; re-append if QQ swaps the DOM subtree.
-- **A settings page**: renderer `onSettingWindowCreated` (loader API) + `LiteLoader.api.config.get/set` for storage.
+- **Load your own CSS/image asset from the plugin folder** **[measured]**: ship the file inside the plugin and
+  reference it over the loader's `local://` scheme — `local://profile/<path relative to profile>/x.css` (the case
+  that matters: your plugin dir lives under `<profile>\plugins\`) or `local:///<absolute path>`. Derive the relative
+  path instead of hardcoding a drive letter or user name, by measuring your plugin dir against the profile root:
+
+  ```js
+  // renderer.js — absolute paths using only loader-provided roots [measured]
+  const me = LiteLoader.plugins["my-plugin"].path.plugin;      // <profile>\plugins\my-plugin
+  const prof = LiteLoader.path.profile;                        // <profile>
+  const rel = me.slice(prof.length).replace(/\\/g, "/").replace(/^\//, "");  // plugins/my-plugin
+  const cssUrl = `local://profile/${rel}/style.css`;
+  const imgUrl = `local://profile/${rel}/icon.png`;
+  ```
+- **A settings page**: renderer `onSettingWindowCreated` (loader API) + `LiteLoader.api.config.get/set` for storage
+  — see §3.7, it has the measured switch markup, config validation and the cross-window sync that makes a change
+  take effect without restarting QQ.
 - **Intercept a click**: capture-phase listener on `document`, then `preventDefault()` +
   `stopImmediatePropagation()`. Measured caveat: some QQ handlers do not live in the main world, so a capture
   listener may lose — probe before promising it works.
@@ -216,6 +241,10 @@ event listeners, so the clone is yours alone:
 - **Sound with no asset file**: a real user click is a valid gesture, so `new (window.AudioContext)()` inside the
   click handler works. A short triangle-wave sweep plus a band-passed noise burst reads as a wooden knock — nothing
   to download or ship.
+- **Audio nodes do not follow a plain number field** **[measured]**: `master.gain.value` is read once, when you build
+  the graph. If your config has a `volume` field, change the node in its setter *and* on load — or make `volume` a
+  getter/setter pair that mirrors into `gain.value` — otherwise the slider moves, the config saves, and the sound
+  never changes. Symptom to recognise: "the setting saves but nothing happens" that is **not** the §3.8 window bug.
 - **Persistent badge**: QQ's own unread badge classes are `q-badge q-badge__red`; a plain absolutely-positioned
   `<span>` inside your cloned `.nav-item` is simpler and theme-independent (measured 23×13 px at the top-right).
 - **Long press to reset**: `pointerdown` + a 700 ms timer, cleared on `pointerup` / `pointercancel` / `pointerleave`;
@@ -226,6 +255,82 @@ event listeners, so the clone is yours alone:
 A complete working plugin built this way is in the repository at `examples/merit-counter/` (button in the rail,
 click pops “+1 ・ 共点击了 N 次”, count persisted). Prototype it in the debug skill's `eval.txt` REPL first — no
 restart per iteration — then package it as a renderer plugin.
+
+### 3.7 Settings page — the three measured traps
+
+`onSettingWindowCreated(view)` hands you a container for your own panel (the loader clones its settings tab entry and
+calls it with `view`). Everything below was measured on 9.9.33 and is what turns a "clicked but nothing happens"
+report into a working switch.
+
+**Trap 1 — QQ's switch is driven by the class `is-active`, not `aria-checked`** **[measured]**. `.q-switch` gets its
+on/off appearance from the class; setting only `aria-checked` produces a switch whose *value* is right and whose
+*paint* is permanently off — the user concludes the switch is broken. Correct markup and toggle:
+
+```js
+// markup: <div class="q-switch"><span class="q-switch__handle"></span></div>
+const sw = view.querySelector(".my-switch .q-switch");
+sw.classList.toggle("is-active", on);   // ← this is what actually paints the switch [measured]
+sw.setAttribute("aria-checked", String(on));  // keep it, for accessibility and for reading state back
+```
+
+**Trap 2 — `config.get` merges the disk value over your defaults and does not validate it** **[measured]**: the
+loader returns `Object.assign({}, default, savedFromDisk)`. A hand-edited or corrupted `config.json` therefore wins
+silently, and a `null` field coerced with `Number()` becomes `0` — which is how a "volume 0 / muted plugin" gets
+diagnosed for an hour. Validate on every read:
+
+```js
+const raw = await LiteLoader.api.config.get("my-plugin", { volume: 60, on: true });
+const cfg = {
+    volume: Number.isFinite(+raw.volume) ? Math.min(100, Math.max(0, +raw.volume)) : 60,
+    on: raw.on === true
+};
+```
+
+**Trap 3 — the setting saves to disk and still "needs a restart"**: that is §3.8, and it is a *window* problem, not
+a config problem. Weigh that first: a config write that succeeds plus a UI that does not move is nearly always
+cross-window, not a write failure.
+
+### 3.8 Cross-window sync — the biggest measured trap
+
+**Every QQ window is a separate JS context** **[measured]** — the main window and the settings window share no
+memory, and `window.dispatchEvent` does **not** cross the boundary. Symptoms: "the setting only applies after
+restarting QQ", even though the value on disk is already correct. Measured here as `webcontentsid=2` for the main
+window vs `=6` for settings.
+
+`localStorage` **is** shared per origin, and its `storage` event does cross windows **[measured]** — with one
+catch: **it does not fire in the window that wrote the value.** So the writer must notify itself, and the cleanest
+place is one `saveConfig()` that every code path goes through — do not leave individual call sites to remember the
+broadcast:
+
+```js
+// renderer.js — one broadcast point, no missed call sites [measured]
+const CH = "my-plugin:config";
+function saveConfig(cfg) {
+    LiteLoader.api.config.set("my-plugin", cfg);
+    localStorage.setItem(CH, JSON.stringify({ ...cfg, _ts: Date.now() }));  // other windows: 'storage'
+    window.dispatchEvent(new CustomEvent(CH, { detail: cfg }));             // this window only
+}
+window.addEventListener("storage", (e) => {
+    if (e.key === CH && e.newValue) applyConfig(JSON.parse(e.newValue));
+});
+window.addEventListener(CH, (e) => applyConfig(e.detail));
+```
+
+If you genuinely need the main process in the loop (or want it to work in a context where `localStorage` is
+unavailable), relaying the same message over `ipcRenderer` from the preload world is the natural fallback — that
+route is **inferred**, not measured; verify it before relying on it. Try `localStorage` first: it needs no bridge
+and no main-process code.
+
+### 3.9 Animation and overlays — two rules that cost a day
+
+- **Animate with `scale` / `translate` / `opacity` independent properties, never by overwriting the `transform`
+  shorthand** **[measured]**: QQ's own overlay layers use `transform` for centring, so a rule that resets
+  `transform: translateX(...)` yanks the layer out of place instead of nudging your element.
+- **Never write a global element rule such as `button { … }`** **[measured]**: one override aimed at QQ's whole app
+  froze the UI when opening a profile card by clicking an avatar. Scope every rule to a container you own. Related:
+  QQ's **send button is not a `<button>`** — it is a set of nested `div`s, and the background is painted by the
+  outermost **`.send-btn-wrap`**; style that, not the inner node you first find.
+
 ## 4. Delivery discipline
 
 - Never write personal data (QQ numbers, chat content, `rkey`/tokens, real usernames, real absolute paths → use

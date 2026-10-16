@@ -1,10 +1,12 @@
 ---
 name: qqnt-loader-install
 description: >
-  Install or repair the LiteLoaderQQNT loader on QQ NT for Windows: find the real app root (the versioned resources\app folder, not the empty shell), create the app_launcher stub, understand the application.json RSA file verification and the
+  Install or repair the LiteLoaderQQNT loader on QQ NT for Windows: find the real app root (the versioned
+  resources\app folder, not the empty shell), create the app_launcher stub, understand the application.json RSA
+  file verification and the
   "file is corrupted" startup failure, apply the QQNT.dll signature patch with a verify-then-derive loop that works
   on new versions, and re-apply everything after a QQ update. Triggers: 安装 LiteLoaderQQNT, 文件已损坏, 绕校验,
-  QQNT.dll 补丁, QQNT loader install, 更新后插件失效.
+  QQNT.dll 补丁, QQNT loader install, 更新后插件失效, 更新已下载未安装.
 license: MIT
 ---
 
@@ -32,8 +34,8 @@ One of four sibling skills: `qqnt-plugin-dev` (writing a plugin), `qqnt-plugin-d
 > circumventing technical protection measures (art. 217); ③ disrupting computer information systems (art. 286).
 
 **Version scope.** Everything marked `[measured]` was verified on **QQ NT 9.9.33-52230 + LiteLoaderQQNT 5.2.1 +
-Electron 40 + Windows** (2026-10). The patch below is *version-specific*: never assume an offset on a new version —
-follow §4's verify-then-derive loop.
+Electron 40 (Chromium 144) + Windows** (2026-10). The patch below is *version-specific*: never assume an offset on a
+new version — follow §4's verify-then-derive loop.
 
 Also: this skill edits QQ's own files. **Always close QQ first**, **back up**, and tell the user what you changed
 and how to undo it.
@@ -189,3 +191,27 @@ That means:
 
 If the user has not updated yet and asks whether to: updating is what breaks the loader; a working patched install
 should be kept until they are ready to redo these three steps.
+
+**A downloaded-but-not-installed update is *not* a broken loader** **[measured]**: `<QQNT>\versions\` holds
+`<old>-<new>.zip` while `versions\config.json`'s `curVersion` still names the **old** directory and `readyVersion`
+is empty. QQ is simply waiting for the next restart to install it. Nothing about the loader is wrong in this state,
+and restarting does **not** invalidate it — the stub and the patch still belong to the version in `curVersion` and
+keep working. Do not repatch anything on the strength of that zip alone.
+
+---
+
+## 7. Triage order when "the plugin stopped working" — plugin first, loader last
+
+**[measured]** In a real session the failure was **not** the loader at all: the patch was still in place (offset
+`0x510197` read `… B8 01 00 00 00`, i.e. already patched) and the loader came up normally. Follow this order, and
+stop at the first thing that is actually wrong:
+
+1. **Did the plugin itself load?** Its own log line / its own config file under `<profile>\data\<slug>\`, or its
+   entry in QQ's plugin list. Also check `disabled_plugins` in `<profile>\data\LiteLoader\config.json` — the plugin
+   may simply be disabled, and a duplicate `slug` folder may be shadowing it (`qqnt-plugin-dev` §3.1).
+2. **Did the plugin throw?** `errors.log` / `console.log` from the debug skill's logger (`qqnt-plugin-debug`).
+3. **Only then the loader**: does its settings entry appear, and does §4 Step 1 still read "already patched"?
+4. **Only then QQ's own files**: a pending update, a moved app root, or a reverted DLL.
+
+Most "plugins stopped working" reports are resolved at steps 1–2; blaming the loader first sends you to patch a file
+that was never broken.

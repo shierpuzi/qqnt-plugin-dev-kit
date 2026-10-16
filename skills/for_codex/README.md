@@ -7,7 +7,7 @@ only the packaging and the agent-facing tool mapping are adapted.
 | Skill directory | Loads when the task is about |
 |---|---|
 | `qqnt-plugin-dev/` | writing / changing a plugin: manifest v4, the three worlds, hooks/APIs, recipes, delivery |
-| `qqnt-plugin-debug/` | making it work on a live client: bundled logger, `eval.txt` REPL, probes, IPC capture, real mouse, 13 pitfalls, ask-the-user loop |
+| `qqnt-plugin-debug/` | making it work on a live client: bundled logger, `eval.txt` REPL, probes, IPC capture, real mouse, 16 pitfalls, ask-the-user loop |
 | `qqnt-loader-install/` | installing / repairing the loader, QQ's file verification, the `QQNT.dll` signature patch (verify → derive → update) |
 | `qqnt-capability-limits/` | deciding whether a feature is reachable from a plugin at all (native vs JS boundary, native-settings-first) |
 
@@ -18,6 +18,8 @@ only the packaging and the agent-facing tool mapping are adapted.
   alongside as `SKILL_EN.md`. Frontmatter `name` / `description` are identical in both.
 - **No angle brackets in `description`.** Codex's validator rejects `<` / `>` in that field,
   so `qqnt-loader-install` describes the app root in plain words instead of `versions\<ver>\resources\app`.
+  Codex's own description limit is **1024 characters** (not the DSH catalog limit of 500);
+  the plain-word rewrite brings that one description to 507, which is fine here.
 - **Base-directory wording.** `skill_resources` is a DSH concept; the wording now says Codex
   reports the skill's absolute directory at load time.
 - **Ask-the-user section covers both.** `qqnt-plugin-debug` §7 documents
