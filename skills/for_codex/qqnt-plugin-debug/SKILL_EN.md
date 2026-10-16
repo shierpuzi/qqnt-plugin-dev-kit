@@ -273,9 +273,11 @@ their observation as the verdict, not your instrument's.
   questions, each with 2–3 mutually exclusive options — put the recommended option first and suffix its label
   with `(Recommended)`; the client adds a free-form **Other** answer automatically. **Single-select only — there is
   no multi-select.** Asking **is blocking**: the turn resumes only after the user answers; no non-blocking (expiry)
-  variant has been observed on the Codex side, so do not plan to keep working after asking. Tool availability is
-  mode-dependent, so when the tool is not offered, fall back to **one concise plain-text question** (never as a
-  multiple-choice list) plus the exact steps and what to report back.
+  variant has been observed on the Codex side, so do not plan to keep working after asking. **Availability is
+  mode-dependent**: only Plan mode can actually invoke it; in Default mode it may still be listed, but a call fails
+  outright (`request_user_input is unavailable in Default mode`) instead of showing options. **Do not assume you can
+  ask just because it is listed.** When the call fails or the tool is truly absent, fall back to **one concise
+  plain-text question** (never as a multiple-choice list) plus the exact steps and what to report back.
 - **On DSH (DeepSeek Harness)**: call **`ask_user_question`** — it asks for a confirmation, a choice, or missing
   information and **waits** for the answer (blocking by default). Per question supply `id`, a short `header`, a
   concrete `question`, and **options with one-line descriptions, recommended option first**; set

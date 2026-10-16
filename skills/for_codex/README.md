@@ -27,7 +27,9 @@ only the packaging and the agent-facing tool mapping are adapted.
   **Other** appended by the client, **single-select only — no multi-select**, blocking, and no
   observed expiry/non-blocking variant) and keeps the upstream DSH `ask_user_question` branch
   verbatim for readers still on that harness (that one does have `multi_select: true`,
-  `mode: timed` + `timeout`). When the tool is not offered, the fallback is **one** plain-text question.
+  `mode: timed` + `timeout`). Availability is **mode-dependent, not list-dependent**: only Plan
+  mode can really invoke it — in Default mode it can still be listed, but the call fails
+  (`request_user_input is unavailable in Default mode`). Fallback is **one** plain-text question.
 
 ## Install (Codex)
 
