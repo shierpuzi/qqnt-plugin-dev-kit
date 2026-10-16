@@ -12,6 +12,12 @@ fits the description budget and only loads when the task matches:
 
 Each directory has `SKILL.md` (English, loaded by DSH) and `SKILL_ZH.md` (Chinese, reference only).
 
+**Codex users: see [`for_codex/`](for_codex/README.md)** — the same four modules repackaged for the Codex
+desktop app (`~/.codex/skills/`): the Chinese body becomes the loadable `SKILL.md`, the English body is kept
+as `SKILL_EN.md`, and the Codex-rejected angle brackets plus DSH-specific tool wording are fixed. DSH scans
+this root at depth 1, so the nested `for_codex/` directory is never picked up as a duplicate skill — both
+families coexist in one checkout.
+
 ## Install
 
 ```text
