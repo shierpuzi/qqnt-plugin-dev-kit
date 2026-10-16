@@ -5,7 +5,7 @@ description: >
   resources\app), create the app_launcher stub, understand the application.json RSA file verification and the
   "file is corrupted" startup failure, apply the QQNT.dll signature patch with a verify-then-derive loop that works
   on new versions, and re-apply everything after a QQ update. Triggers: 安装 LiteLoaderQQNT, 文件已损坏, 绕校验,
-  QQNT.dll 补丁, QQNT loader install, 更新后插件失效.
+  QQNT.dll 补丁, QQNT loader install, 更新后插件失效, 更新已下载未安装.
 license: MIT
 ---
 
@@ -30,7 +30,7 @@ license: MIT
 > ② 侵犯著作权，包括规避技术措施（第 217 条）；③ 破坏计算机信息系统（第 286 条）。
 
 **版本范围。** 所有标为 `[实测]` 的内容均在 **QQ NT 9.9.33-52230 + LiteLoaderQQNT 5.2.1 +
-Electron 40 + Windows**（2026-10）上验证过。下面的补丁是*版本相关*的：新版上绝不要假设偏移不变 ——
+Electron 40（Chromium 144）+ Windows**（2026-10）上验证过。下面的补丁是*版本相关*的：新版上绝不要假设偏移不变 ——
 按 §4 的「先验证再推导」闭环来做。
 
 另外：本 skill 会修改 QQ 自身的文件。**务必先关闭 QQ**、**先备份**，并告知用户你改了什么、怎么撤销。
@@ -183,3 +183,24 @@ require(String.raw`<absolute loader path>`);
 
 如果用户还没更新、正在问要不要更新：更新正是会弄坏加载器的动作；已打好补丁且可用的安装应当保留，
 直到他们准备好重做这三步。
+
+**升级包已下载但尚未安装 ≠ 加载器坏了** **[实测]**：`<QQNT>\versions\` 里躺着 `<old>-<new>.zip`，而
+`versions\config.json` 的 `curVersion` 仍指向**旧**目录、`readyVersion` 为空。这只是 QQ 在等下一次重启来安装它。
+这个状态下加载器没有任何问题，重启也**不会**让它失效 —— stub 和补丁属于 `curVersion` 指的那个版本，照常工作。
+不要因为看到那个 zip 就去重打补丁。
+
+---
+
+## 7. 「插件失效了」的排查顺序 —— 先插件，最后才是 loader
+
+**[实测]** 一次真实会话里的问题**根本不是**加载器：补丁仍在位（偏移 `0x510197` 读到
+`… B8 01 00 00 00`，即已打过补丁），loader 也正常起来了。按下面的顺序排查，在第一个真正出错的地方停下：
+
+1. **插件本身加载了吗？** 看它自己写的日志行 / `<profile>\data\<slug>\` 下它自己的配置文件，或者 QQ 插件列表里的
+   条目。同时检查 `<profile>\data\LiteLoader\config.json` 的 `disabled_plugins` —— 插件可能只是被禁用了；
+   另外重复 `slug` 的文件夹也可能把它顶掉（`qqnt-plugin-dev` §3.1）。
+2. **插件报错了吗？** 看调试技能那个 logger 产出的 `errors.log` / `console.log`（`qqnt-plugin-debug`）。
+3. **然后才轮到 loader**：它的设置入口出现了吗？§4 第 1 步是否仍读到「already patched」？
+4. **最后才轮到 QQ 自身文件**：是否有待处理的更新、app 根目录是否搬走、DLL 是否被还原。
+
+绝大多数「插件失效」的报告在第 1–2 步就解决了；一上来就怀疑 loader，只会让你去改一个从来没坏过的文件。

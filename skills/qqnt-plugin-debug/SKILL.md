@@ -5,7 +5,7 @@ description: >
   exception, window-creation and IPC logs with 5 MB rotation), drive its eval.txt REPL that runs JS in every window,
   run DOM hit-test and visibility probes, capture IPC channels including already-registered handlers, inject real
   mouse input, and work through the measured pitfalls catalogue. Triggers: 插件不生效, 插件调试, QQNT 插件排错,
-  eval.txt, debug QQ plugin, background plugin 点不到.
+  eval.txt, debug QQ plugin, background plugin 点不到, 改设置要重启.
 license: MIT
 ---
 
@@ -34,8 +34,8 @@ One of four sibling skills: `qqnt-plugin-dev` (writing one), **`qqnt-plugin-debu
 > controlling computer information systems (Criminal Law art. 285 §3); ② copyright infringement, including
 > circumventing technical protection measures (art. 217); ③ disrupting computer information systems (art. 286).
 
-**Version scope.** `[measured]` facts were verified on **QQ NT 9.9.33-52230 + LiteLoaderQQNT 5.2.1 + Electron 40 +
-Windows** (2026-10). Elsewhere, re-probe first.
+**Version scope.** `[measured]` facts were verified on **QQ NT 9.9.33-52230 + LiteLoaderQQNT 5.2.1 + Electron 40
+(Chromium 144) + Windows** (2026-10). Elsewhere, re-probe first.
 
 **Tell the user, up front, that this will take several short rounds** — see §7.
 
@@ -81,6 +81,22 @@ Write one JS expression into `eval.txt`; within ~1 s it runs in **every** window
 
 - The probes in §3 are **read-only** (they inspect the DOM/bridge and return data). They are safe to leave in
   `eval.txt`.
+- **`eval.txt` runs in *every* window at once — a state-changing script therefore runs N times, concurrently**
+  **[measured]**: one run wrote config in window A while window B wrote a different value, the values overwrote each
+  other, and the read-back could not be trusted. If a script must change state, make it **identify its own window
+  explicitly** and no-op everywhere else, or only let the one target window act:
+
+  ```js
+  // explicit window identity — the sidebar only exists in the main window [measured]
+  // (IIFE so the same snippet is safe whether or not your executor allows top-level return)
+  (() => {
+    if (!document.querySelector(".sidebar__nav")) return { skip: true, at: location.href };
+    /* … mutation that must happen exactly once … */
+  })()
+  ```
+
+  Remember this rule cuts both ways: the identity check above is for *deciding where to run a mutation*. It is
+  **not** a liveness test — see pitfall 14.
 - Anything that **clicks, sets a value, calls an IPC method, navigates, or changes QQ state** must be **removed from
   `eval.txt` immediately after it runs** — do not keep it "for next time".
 - Why this is not optional **[measured]**: the plugin used to replay existing `eval.txt` content on every QQ start;
@@ -102,6 +118,16 @@ Write one JS expression into `eval.txt`; within ~1 s it runs in **every** window
 make `install()` remove any older marker, and paste the new source into `eval.txt` — the running client swaps to the
 new version in ~1 s with no restart. Only restart QQ once the code is final (that is also when you verify the
 packaged plugin, not just the prototype).
+
+**Updating an imported ESM module: restart QQ, don't chase the cache** **[measured]**. `import()` caches the module
+by URL, so a changed file on disk keeps returning the old module. The obvious workaround — a cache-busting query
+string, `import("local://profile/plugins/my-plugin/x.js?v=" + Date.now())` — **fails in sandboxed windows**: in an
+`about:blank` window it throws `Access to script … blocked by CORS policy … only supported for protocol schemes:
+cacheimg, chrome, …`. `local://` assets are simply not usable there. For a module you genuinely need to iterate on,
+the reliable loop is: edit → **restart QQ** → verify. Keep the fast iteration for the *implementation* (paste it into
+`eval.txt`, which is re-evaluated per write and is not affected by the ESM cache) and save the restart for the
+packaged file.
+
 ## 3. Probes (read-only — write into `eval.txt`)
 
 ```js
@@ -219,11 +245,29 @@ landed where you aimed with `document.elementFromPoint(x - winLeft, y - winTop)`
     lines you care about.
 13. **A silent plugin is not a broken plugin**: `setInterval` + `querySelector` patterns swallow a selector miss
     completely. Always pair a "did it match" count with a "did it change anything" measurement.
+14. **A missing selector is not a dead window — never use element existence as a liveness probe** **[measured]**.
+    A guard like `if (!document.querySelector(".sidebar__nav")) return {skip:true}` was used to detect "this window
+    is unresponsive"; but QQ's router briefly unmounts the sidebar when it navigates to `#/main/message`, so a
+    perfectly **healthy** window reported `skip`. That false reading caused the main window to be declared frozen
+    **twice**. To judge whether a window is alive, make *the window itself* log (`console.error("[probe] here", …)`)
+    and check whether the line appears in `console.log` — that is a positive signal from inside the window. Element
+    absence is only evidence about the DOM, and only at the instant you looked.
+15. **`eval.txt` executes in every window concurrently** — a state-changing script runs N times and windows can
+    overwrite each other's writes (§2). Give the script an explicit window-identity guard, or restrict it to one
+    window. If a read-back contradicts itself, suspect this before suspecting QQ.
+16. **`local://` does not work in sandboxed windows** — `import("local://profile/…/x.js?v=" + Date.now())` in an
+    `about:blank` window dies on a CORS policy error (§2). For an updated ESM module, restart QQ.
 
 ## 7. Work with the user in the loop — use the ask tool, often
 
 Most facts are only observable on the user's **running** client. **Expect several short rounds; do not try to finish
 in one shot.**
+
+**Do not declare success from your own probe readings.** Your probes answer "did the DOM change", not "does it work
+for a human"; **one real action by the user routinely finds what a probe cannot** (a switch that never repaints, a
+sound that never plays, a click that lands but does nothing the user cares about). Reporting "done" off a green probe
+is how a broken plugin gets shipped — ask the user to perform the action and report what they actually saw, and treat
+their observation as the verdict, not your instrument's.
 
 - **On DSH (DeepSeek Harness)**: call **`ask_user_question`** — it asks for a confirmation, a choice, or missing
   information and **waits** for the answer (blocking by default). Per question supply `id`, a short `header`, a

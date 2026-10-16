@@ -41,6 +41,7 @@ QQ NT 的插件生态文档很少，而且大多数"经验"只能口口相传。
 | [`plugins/README.md`](plugins/README.md) | 插件安装/禁用通用步骤 |
 | [`examples/open-in-browser/`](examples/open-in-browser/) | 反面案例：用插件拦"QQ 内置浏览器"为什么做不到 |
 | [`examples/merit-counter/`](examples/merit-counter/) | **可用样例**：左侧栏「功德 +1」按钮（skill 实测产物，含 DOM 与持久化实测数据） |
+| [`examples/lens-skin/`](examples/lens-skin/) | **皮肤插件实测复盘**：把开源设计体系 Lens 映射到 QQ（主题令牌 / 派生色 `color-mix` 补全 / 弹性动效 / 合成音 / 设置页）；含 18 条「症状→误判→根因→正解」踩坑记录 |
 | [skills/for_codex/](skills/for_codex/README.md) | **Codex 适配版**（同一套四个 skill，中文正文作为 `SKILL.md`、英文留作 `SKILL_EN.md`；修正了 Codex 校验器不接受的尖括号与 DSH 专属工具措辞） |
 | [`skills/`](skills/README.md) | **DSH skill 家族（四个自包含模块）**：`qqnt-plugin-dev`（写插件）/ `qqnt-plugin-debug`（调试）/ `qqnt-loader-install`（安装与签名补丁）/ `qqnt-capability-limits`（能力边界）；每块含英文 `SKILL.md` + 中文 `SKILL_ZH.md`，调试模块内嵌调试插件，四块 description 均 ≤500 字符；安装与作者约束见 `skills/README.md` |
 

@@ -1,11 +1,11 @@
 ---
 name: qqnt-plugin-dev
 description: >
-  Write, modify or review a LiteLoaderQQNT / QQNT plugin for the QQ NT desktop client on Windows: manifest v4, what
-  the main / preload / renderer worlds each can touch, hooks and LiteLoader APIs, a minimum working plugin, common
-  recipes, and the pre-delivery checklist. Carries the mandatory disclaimer and the iron rules (check QQ's own native
+  Write, modify or review a LiteLoaderQQNT / QQNT plugin for the QQ NT client on Windows: manifest v4, what
+  the main / preload / renderer worlds each can touch, hooks and LiteLoader APIs, a minimum working plugin, recipes,
+  and the pre-delivery checklist. Carries the mandatory disclaimer and the iron rules (check QQ's own native
   settings first; confirm the JS layer is even involved). Triggers: LiteLoaderQQNT, LLQQNT, QQNT 插件,
-  LiteLoader 插件, write a QQNT plugin, QQ 插件 manifest.
+  LiteLoader 插件, write a QQNT plugin, QQ 插件 manifest, 设置不生效, 开关点不动.
 license: MIT
 ---
 
@@ -49,7 +49,7 @@ license: MIT
 因此要预期若干轮简短测试（*debug* skill 涵盖了这套“向用户提问”的循环）。
 
 **版本范围。** 所有标记为 `[实测]` 的内容，均在 **QQ NT 9.9.33-52230 + LiteLoaderQQNT 5.2.1 +
-Electron 40 + Windows**（2026-10）上验证过。在其他任何版本上，把每一条 `[实测]` 结论都当作假设，
+Electron 40（Chromium 144）+ Windows**（2026-10）上验证过。在其他任何版本上，把每一条 `[实测]` 结论都当作假设，
 先用探针重新验证，再据此行动。
 
 ---
@@ -93,7 +93,7 @@ Electron 40 + Windows**（2026-10）上验证过。在其他任何版本上，�
   "slug": "my-plugin",
   "description": "what it does",
   "version": "1.0.0",
-  "authors": [{ "name": "you" }],
+  "authors": [{ "name": "you", "link": "https://github.com/you" }],
   "platform": ["win32"],
   "type": "extension",
   "dependencies": ["other-slug"],
@@ -102,6 +102,15 @@ Electron 40 + Windows**（2026-10）上验证过。在其他任何版本上，�
 ```
 
 - `type` 取值为 `extension | theme | framework`；loader **不会**按它过滤 **[实测]**。
+- **`authors` 每一项都需要 `name` *和* `link`** **[实测]** —— loader 自带的 `manifest.schema.json`
+  （随 LiteLoaderQQNT 发布包提供，和它的 `package.json` 同级；要读就读那里，因为部署到
+  `<app>\LiteLoaderQQNT\` 下的副本可能只剩 `src/`）里写着 `authors.items.required = ["name","link"]`。
+  缺 `link` 仍然能加载，但已不符合 schema，而且 QQ 的插件列表会把每位作者渲染成一个可点击链接，缺了就是死链。
+- **`repository` 决定插件列表里的仓库链接** **[实测]**（`manifest.repository.{repo,branch}` →
+  `https://github.com/<repo>/tree/<branch>`）；这个插件只要将来会上架，就把它补上：
+  `"repository": { "repo": "you/my-plugin", "branch": "main", "release": { "tag": "1.0.0", "url": "my-plugin.zip" } }`。
+  一旦写了 `repository`，`branch` 就是必填；`release` 下 `tag` 必填，`url` 是 **release 附件文件名**
+  （不写则直接下载该 tag 的源码包）。
 - `dependencies` 只决定**加载顺序** —— 它**不会**安装依赖 **[实测]**。
 - 两个文件夹使用相同 `slug` → 只有一个会加载（扫描时最后到达的那个）**[实测]**。在调试一个“死掉”的
   插件之前，先检查是否有重复。
@@ -156,7 +165,20 @@ document.addEventListener("click", (e) => {
 ### 3.5 常用配方
 
 - **注入 CSS**：渲染进程插件，在加载时追加一个 `<style>`；如果 QQ 替换了 DOM 子树，就重新追加。
-- **一个设置页面**：渲染进程的 `onSettingWindowCreated`（loader API）+ `LiteLoader.api.config.get/set` 做存储。
+- **加载插件目录里的 CSS/图片资源** **[实测]**：把文件随插件一起发布，用 loader 的 `local://` 协议引用 ——
+  `local://profile/<相对 profile 的路径>/x.css`（关键场景：插件目录就在 `<profile>\plugins\` 下）或
+  `local:///<绝对路径>`。不要硬编码盘符或用户名，用 loader 给的两个根目录把相对路径算出来：
+
+  ```js
+  // renderer.js — 只用 loader 提供的根目录算绝对路径 [实测]
+  const me = LiteLoader.plugins["my-plugin"].path.plugin;      // <profile>\plugins\my-plugin
+  const prof = LiteLoader.path.profile;                        // <profile>
+  const rel = me.slice(prof.length).replace(/\\/g, "/").replace(/^\//, "");  // plugins/my-plugin
+  const cssUrl = `local://profile/${rel}/style.css`;
+  const imgUrl = `local://profile/${rel}/icon.png`;
+  ```
+- **一个设置页面**：渲染进程的 `onSettingWindowCreated`（loader API）+ `LiteLoader.api.config.get/set` 做存储
+  —— 见 §3.7，那里有实测的开关结构、配置校验，以及让改动无需重启 QQ 就能生效的跨窗口同步。
 - **拦截一次点击**：在 `document` 上用捕获阶段监听器，然后 `preventDefault()` +
   `stopImmediatePropagation()`。实测注意点：QQ 的某些处理程序并不在主世界里，所以捕获监听器可能失效 ——
   先探测，再承诺它能工作。
@@ -205,11 +227,81 @@ document.addEventListener("click", (e) => {
 
 - **图标**：导航项的图标是内联 `<svg>` 且**不用** `currentColor`；你自己的 SVG 用 `currentColor` 就会自动跟随主题（实测浅色主题下 `color: rgb(4,30,42)`）。
 - **音效不需要音频文件**：真实用户点击本身就是合法手势，所以在 click 处理器里 `new (window.AudioContext)()` 可用；三角波快速下滑 + 带通噪声瞬态就很像木鱼"笃"声，无需下载或随包发布任何资源。
+- **音频节点不会跟着一个纯数字字段走** **[实测]**：`master.gain.value` 只在你搭好音频图的那一刻读一次。如果你的配置里有
+  `volume` 字段，就必须在它的 setter 里**以及**初始化时都去改节点 —— 或者把 `volume` 做成一个同步进 `gain.value` 的
+  getter/setter —— 否则滑杆在动、配置也存了，声音永远不变。识别症状：「设置能保存但毫无反应」，而且它**不是** §3.8 的跨窗口问题。
 - **常驻徽标**：QQ 自己的未读徽标类是 `q-badge q-badge__red`；在克隆出来的 `.nav-item` 里放一个绝对定位的 `<span>` 更简单且不依赖主题（实测右上角 23×13 px）。
 - **长按清零**：`pointerdown` + 700 ms 定时器，在 `pointerup` / `pointercancel` / `pointerleave` 清除；用时间戳（`Date.now() - lastLongPress < 600`）吃掉紧随其后的那次 click。
 - **迭代时热替换**：给注入节点打版本标记（`btn.dataset.ver = "v2"`），`install()` 里先移除旧标记节点，再把新代码贴进 `eval.txt` —— 运行中的客户端约 1 秒内换新，**不用重启**。
 用这种方式做出来的完整可用插件在仓库 `examples/merit-counter/`（左栏按钮、点击弹「+1　共点击了 N 次」、计数持久化）。
 先在调试 skill 的 `eval.txt` 里原型验证（每轮迭代不用重启），再打包成 renderer 插件。
+
+### 3.7 设置页 —— 三个实测坑
+
+`onSettingWindowCreated(view)` 会把一个容器交给你做自己的面板（loader 会克隆一份设置页签项，并用 `view` 调用它）。
+以下都是 9.9.33 实测，正是它们把「点了没反应」变成真正能用的开关。
+
+**坑 1 —— QQ 的开关外观由 class `is-active` 驱动，不是 `aria-checked`** **[实测]**。`.q-switch` 的开关样式来自这个
+class；只改 `aria-checked` 会得到一个*状态值正确、外观永远是关*的开关 —— 用户只会得出「开关坏了」的结论。正确的结构与切换：
+
+```js
+// markup: <div class="q-switch"><span class="q-switch__handle"></span></div>
+const sw = view.querySelector(".my-switch .q-switch");
+sw.classList.toggle("is-active", on);   // ← 真正画出开关状态的是这一行 [实测]
+sw.setAttribute("aria-checked", String(on));  // 也要保留，用于无障碍和读回状态
+```
+
+**坑 2 —— `config.get` 会把磁盘值合并覆盖到你的默认值上，而且不做校验** **[实测]**：loader 返回的是
+`Object.assign({}, default, savedFromDisk)`。因此被手工改坏或损坏的 `config.json` 会静默生效，一个 `null` 字段经
+`Number()` 会变成 `0` —— 这就是「音量 0 / 插件变哑」这类问题要查一个小时的原因。每次读取都要校验：
+
+```js
+const raw = await LiteLoader.api.config.get("my-plugin", { volume: 60, on: true });
+const cfg = {
+    volume: Number.isFinite(+raw.volume) ? Math.min(100, Math.max(0, +raw.volume)) : 60,
+    on: raw.on === true
+};
+```
+
+**坑 3 —— 配置已经写进磁盘，却仍然「要重启才生效」**：那是 §3.8，是**窗口**问题，不是配置问题。先往这个方向想：
+配置写入成功 + UI 不动，几乎一定是跨窗口，而不是写入失败。
+
+### 3.8 跨窗口同步 —— 实测最大的坑
+
+**QQ 的每个窗口都是独立的 JS 上下文** **[实测]** —— 主界面窗口和设置窗口不共享内存，`window.dispatchEvent` 也
+**跨不过**窗口边界。症状：「设置要重启 QQ 才生效」，尽管磁盘上的值其实早就写对了。本次实测主界面
+`webcontentsid=2`、设置页 `=6`。
+
+`localStorage` **是**按 origin 共享的，它的 `storage` 事件**确实**能跨窗口 **[实测]** —— 但有一个前提：
+**它不会在写入者自己的窗口里触发。** 所以写入方必须自己通知自己，而最干净的做法是让所有代码路径都走同一个
+`saveConfig()` —— 不要把广播留给各个调用点去记得：
+
+```js
+// renderer.js — 只有一个广播点，不会漏掉调用方 [实测]
+const CH = "my-plugin:config";
+function saveConfig(cfg) {
+    LiteLoader.api.config.set("my-plugin", cfg);
+    localStorage.setItem(CH, JSON.stringify({ ...cfg, _ts: Date.now() }));  // 其它窗口：'storage'
+    window.dispatchEvent(new CustomEvent(CH, { detail: cfg }));             // 仅本窗口
+}
+window.addEventListener("storage", (e) => {
+    if (e.key === CH && e.newValue) applyConfig(JSON.parse(e.newValue));
+});
+window.addEventListener(CH, (e) => applyConfig(e.detail));
+```
+
+如果你确实需要把主进程拉进链路（或者需要一个在 `localStorage` 不可用的上下文里也能工作的方案），从 preload 世界用
+`ipcRenderer` 转发同样的消息是自然的备选 —— 这条路径属于**推断**，不是实测，依赖前请先验证。先试 `localStorage`：
+它不需要桥、也不需要主进程代码。
+
+### 3.9 动效与浮层 —— 两条各花掉一天的规则
+
+- **用 `scale` / `translate` / `opacity` 这些独立属性做动画，绝不要覆盖 `transform` 简写** **[实测]**：QQ 自己的
+  浮层用 `transform` 做居中，所以一条把 `transform: translateX(...)` 重置的规则会把浮层拽离原位，而不是微调你的元素。
+- **绝不要写 `button { … }` 这种全局元素规则** **[实测]**：有一条针对 QQ 整个应用的覆盖规则，在点头像打开资料卡时
+  把界面卡死了。每条规则都限定在你自己的容器内。相关的：QQ 的**发送按钮不是 `<button>`** —— 它是一组嵌套的
+  `div`，而背景由最外层的 **`.send-btn-wrap`** 绘制；要改就改它，而不是你最先找到的那个内层节点。
+
 ## 4. 交付纪律
 
 - 绝不写入个人数据（QQ 号、聊天内容、`rkey`/token、真实用户名、真实绝对路径 → 使用

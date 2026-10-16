@@ -5,7 +5,7 @@ description: >
   measured native-shell vs JS boundary (what ipcMain hooks, navigation hooks and window.open can and cannot
   intercept), why QQ's internal browser and its "open in default browser" toolbar button are unreachable from a
   plugin, and how to find and flip QQ's own native setting instead. Triggers: 为什么插件拦不住, 内置浏览器,
-  qqBrowser, QQ 原生设置, can a plugin hook this, QQNT plugin limitations.
+  qqBrowser, QQ 原生设置, can a plugin hook this, QQNT plugin limitations, 拖窗口.
 license: MIT
 ---
 
@@ -33,7 +33,7 @@ One of four sibling skills: `qqnt-plugin-dev` (writing one), `qqnt-plugin-debug`
 > circumventing technical protection measures (art. 217); ③ disrupting computer information systems (art. 286).
 
 **Version scope.** Everything marked `[measured]` was verified on **QQ NT 9.9.33-52230 + LiteLoaderQQNT 5.2.1 +
-Electron 40 + Windows** (2026-10). On another version, re-verify before relying on it.
+Electron 40 (Chromium 144) + Windows** (2026-10). On another version, re-verify before relying on it.
 
 ---
 
@@ -53,7 +53,7 @@ Finding and flipping such a switch, from the Settings window (via the debug skil
   if (!leaf) return "not on this page";
   const item = leaf.closest(".panel-main") || leaf.parentElement.parentElement;
   const sw = item.querySelector(".q-switch[role=switch]");
-  return sw ? { checked: sw.getAttribute("aria-checked") } : "no switch"; })()
+  return sw ? { checked: sw.getAttribute("aria-checked"), painted: sw.classList.contains("is-active") } : "no switch"; })()
 ```
 
 ```js
@@ -64,6 +64,12 @@ Finding and flipping such a switch, from the Settings window (via the debug skil
     sw.dispatchEvent(new E(ev, { bubbles: true, cancelable: true, view: window, button: 0 })); }
   return { after: sw.getAttribute("aria-checked") }; })()
 ```
+
+**[measured]** Those `.q-switch` components are ordinary page DOM, and their *painted* on/off state comes from the
+class **`is-active`**, not from `aria-checked`: setting only `aria-checked` leaves the switch looking permanently
+off while its value is already right. Read both, and if you build a switch of your own use
+`classList.toggle("is-active", on)` (`qqnt-plugin-dev` §3.7 has the markup and the other settings-page traps).
+A plugin can also mount its own panel in the settings window through the loader's `onSettingWindowCreated` hook.
 
 Always tell the user **which setting you changed and how to revert it**.
 
@@ -84,6 +90,26 @@ Conclusion: those actions are implemented inside the **native shell (`QQNT.dll`)
 (and clean up afterwards), but it cannot intercept or prevent them. Post-hoc workarounds (let QQ's page appear,
 then drive QQ's own toolbar button) are slow and racy **[measured]** — do not promise them as a fix.
 
+### 2.1 The third case: observable but not interceptable — native window dragging **[measured]**
+
+Some native behaviour cannot be *caught* as an event, yet leaves a signal a plugin **can** read. Native window
+dragging (`app-region: drag`, measured on the 1061×40 top bar and the 52×581 left rail) is the reference example:
+
+| Question | Measured answer |
+|---|---|
+| Does the renderer receive pointer events while dragging? | **No** — `pointerdown` / `pointermove` / `pointerup` counts are **all 0**. `app-region: drag` hands the drag to the OS before the page sees it. |
+| Is the renderer still running during the drag? | **Yes** — over a 12 s drag: **239 heartbeats**, worst stall **0 ms**, and the window moved **214 px**, read correctly. |
+
+So **you cannot intercept the drag**, but you *can* observe it: poll `window.screenX` / `window.screenY` and derive
+velocity from the deltas — that is enough to drive "dragging-the-window" sound or visual feedback, which a pointer
+listener can never do here. Treat this as a third category on the boundary:
+
+- ❌ **not interceptable** — no pointer/preventDefault route
+- ✅ **observable** — a polling signal still exists
+
+When a feature looks "unreachable", check for such a signal before reporting a flat no: the honest verdict is
+"can't intercept, can observe", and that often still ships the user's goal.
+
 ---
 
 ## 3. Capability table **[measured]**
@@ -99,9 +125,11 @@ then drive QQ's own toolbar button) are slow and racy **[measured]** — do not 
 | Wrap newly registered `ipcMain` handlers | ✅ plugin main code runs before QQ's app code |
 | Wrap already-registered invite handlers | ✅ via `ipcMain._invokeHandlers` / `_events` (internal APIs) |
 | Stop QQ opening its internal browser, or its "open externally" icon | ❌ native shell (§2) |
+| React to a **native window drag** (feedback/sound while the user moves the window) | ⚠️ not interceptable — no pointer events; poll `window.screenX/screenY` instead (§2.1) |
 | Replace the page's `window.ipcRenderer` | ❌ frozen contextBridge object |
 | Inject into `qqBrowser.html` (internal browser chrome) | ✅ main-process `webContents.executeJavaScript` only |
 | Change QQ's own settings | ✅ by driving the settings UI (`.q-switch`, §1) — not by writing its config blindly |
+| Add your own panel to QQ's settings window | ✅ `onSettingWindowCreated` (loader hook), own DOM inside it (`qqnt-plugin-dev` §3.7) |
 | Stop QQ updates / edit its files silently | ⚠️ RSA-verified; warn the user, give rollback (`qqnt-loader-install`) |
 
 ---

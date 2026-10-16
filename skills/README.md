@@ -48,7 +48,7 @@ skill installs standalone without fetching anything.
   provenance) and put every trigger phrase inside `description`.
 - **`description` budget: stay ≤ 500 characters.** Upstream is
   `DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH = 500`; a local patch may raise it to 900, but nothing here relies on that
-  (current sizes: dev 493, debug 483, loader-install 471, capability-limits 489).
+  (current sizes: dev 492, debug 491, loader-install 481, capability-limits 494).
 - **Self-contained**: no network fetch, no dependency on another skill being installed. Relative paths mentioned in a
   skill resolve against the base directory DSH reports in that skill's `<skill_resources>` block.
 - Keep each module focused; if a module outgrows one topic, split it again rather than growing the description.
