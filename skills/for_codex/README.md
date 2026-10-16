@@ -24,8 +24,10 @@ only the packaging and the agent-facing tool mapping are adapted.
   reports the skill's absolute directory at load time.
 - **Ask-the-user section covers both.** `qqnt-plugin-debug` §7 documents
   `request_user_input` (Codex: 1–3 questions, 2–3 recommended-first options, free-form
-  **Other**, blocking by default) and keeps the DSH `ask_user_question` branch for readers
-  still on that harness. When the tool is not offered, the fallback is **one** plain-text question.
+  **Other** appended by the client, **single-select only — no multi-select**, blocking, and no
+  observed expiry/non-blocking variant) and keeps the upstream DSH `ask_user_question` branch
+  verbatim for readers still on that harness (that one does have `multi_select: true`,
+  `mode: timed` + `timeout`). When the tool is not offered, the fallback is **one** plain-text question.
 
 ## Install (Codex)
 

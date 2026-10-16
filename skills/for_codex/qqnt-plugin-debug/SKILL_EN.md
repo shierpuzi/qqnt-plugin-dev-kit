@@ -271,16 +271,19 @@ their observation as the verdict, not your instrument's.
 
 - **On Codex**: call **`request_user_input`** when the tool is offered in the current session. It presents 1–3
   questions, each with 2–3 mutually exclusive options — put the recommended option first and suffix its label
-  with `(Recommended)`; the client adds a free-form **Other** answer automatically, and a multi-select variant is
-  available in the client schema. **Blocking is the default**: the turn resumes only after the user answers. A
-  non-blocking variant exists, but only if you deliberately picked one with an expiry — do not assume you can keep
-  working after asking. Tool availability is mode-dependent, so when the tool is not offered, fall back to **one
-  concise plain-text question** (never as a multiple-choice list) plus the exact steps and what to report back.
-- **On DSH (DeepSeek Harness)**: call **`ask_user_question`** for the same shape — supply `id`, a short `header`, a
-  concrete `question`, and options with one-line descriptions (recommended first); set `multi_select: true` when
-  several may apply. The user may also answer free-form (`custom`) or skip an item. `mode: timed` + `timeout` is the
-  non-blocking variant. A live child agent owned by another agent cannot ask — it must surface the open question in
-  its final result, so the main agent/Lead asks.
+  with `(Recommended)`; the client adds a free-form **Other** answer automatically. **Single-select only — there is
+  no multi-select.** Asking **is blocking**: the turn resumes only after the user answers; no non-blocking (expiry)
+  variant has been observed on the Codex side, so do not plan to keep working after asking. Tool availability is
+  mode-dependent, so when the tool is not offered, fall back to **one concise plain-text question** (never as a
+  multiple-choice list) plus the exact steps and what to report back.
+- **On DSH (DeepSeek Harness)**: call **`ask_user_question`** — it asks for a confirmation, a choice, or missing
+  information and **waits** for the answer (blocking by default). Per question supply `id`, a short `header`, a
+  concrete `question`, and **options with one-line descriptions, recommended option first**; set
+  `multi_select: true` when several may apply. The user may also answer free-form (`custom`) or skip an item. Answers
+  come back as `{"answers":[{"id","selected","custom"}]}`. **Waiting for the human adds no tokens.** Variants:
+  `mode: timed` + `timeout` lets you keep working while the question stays answerable; `timeout: -1` waits
+  indefinitely. A live child agent owned by another agent **cannot** ask — it must surface the open question in its
+  final result, so the main agent/Lead asks.
 - **On other agent platforms**: check your own environment for an equivalent (elicitation / human-in-the-loop tool /
   approval prompt); if there is none, write the exact test steps and what to report back.
 - **One small decisive test per round.** Not "please test everything" but: "click one chat link, then pick
