@@ -325,6 +325,33 @@ function selectElement(el, additive) {
     paintSelection();
 
     const detail = selected.map((s) => ({ info: s.info, rules: s.rules }));
+
+    /*
+     * 【实测坑】不要把对象直接 console.log 后就指望它落进日志文件。
+     *
+     * dsh-debug-logger 是把渲染进程的 console-message 转发到 console.log 文件的
+     * （main.js 的 wc.on("console-message")），而 Chromium 传给该事件的 message
+     * 是【已经序列化过的字符串】—— 对象会变成字面的 "[object Object]"。
+     * 实测日志里就是：
+     *   [dsh-picker] 选中 1 个元素: [object Object]
+     * 于是"从控制台/日志拿选中条目"这条路径完全读不出内容。
+     *
+     * 所以这里额外打一份 JSON 字符串：既保留对象形态（DevTools 里可展开），
+     * 又给日志留一条可读、可复制、可粘贴的记录。
+     * 前缀 [dsh-picker:json] 便于用 grep / Select-String 精确抓取。
+     */
+    try {
+        console.log(`[dsh-picker:json] ${JSON.stringify(detail)}`);
+    } catch (e) {
+        // 循环引用等极端情况：退化成逐条最小字段，保证日志里仍有可用信息
+        try {
+            console.log(`[dsh-picker:json] ${JSON.stringify(selected.map((s) => ({
+                selector: s.info.selector, cls: s.info.cls, rect: s.info.rect,
+                radius: s.info.radius, normalized: s.info.normalized,
+            })))}`);
+        } catch { /* 放弃序列化，仍有人类可读的那两行 */ }
+    }
+
     console.log(`[dsh-picker] 选中 ${selected.length} 个元素:`, detail);
     for (const s of selected) console.log(`[dsh-picker] ${s.info.selector} 的样式来源:`, s.rules);
 

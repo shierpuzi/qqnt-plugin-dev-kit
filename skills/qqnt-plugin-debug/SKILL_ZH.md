@@ -2,10 +2,10 @@
 name: qqnt-plugin-debug
 description: >
   Debug a QQNT / LiteLoaderQQNT plugin on a live client: bundled dsh-debug-logger (console, exception,
-  window-creation and IPC logs with 5 MB rotation), element picker (Ctrl+Shift+C, Ctrl multi-select,
-  auto-copy) to see which element draws a box, eval.txt REPL running JS in every window, DOM hit-test and
-  visibility probes, IPC capture, real mouse input, and the measured pitfalls catalogue. Triggers: 插件不生效,
-  插件调试, QQNT 插件排错, eval.txt, 元素选择器, debug QQ plugin, background plugin 点不到, 改设置要重启.
+  window-creation and IPC logs with 5 MB rotation), an element picker (Ctrl+Shift+C) that turns the thing the
+  user points at into text, eval.txt REPL running JS in every window, DOM hit-test and visibility probes, IPC
+  capture, real mouse input, and the measured pitfalls catalogue. Triggers: 界面哪个地方不对, 哪个控件要改,
+  哪个按钮要调, 这块要优化, 这里要加东西, 我指的那个元素, 元素选择器, 插件不生效, 插件调试, QQNT 插件排错, eval.txt.
 license: MIT
 ---
 
@@ -135,6 +135,18 @@ QQ 的插件设置）。
 
 这一轮问答就能替你省掉好几轮"照着截图猜选择器"。自己写 `elementFromPoint` / 命中测试探针反而是慢路径，而且
 **常常是错的**：拾取器给的是*命中的 CSS 来源规则*，原始命中测试给不出这个。
+
+**你也可以直接从日志文件里读，连用户粘贴都不需要 **[实测]** —— 每次选中都会往
+`<profile>/data/dsh-debug-logger/console.log` 追加一行带前缀 `[dsh-picker:json]` 的 JSON，抓最后一行即可：
+
+```powershell
+Select-String -Path "<profile>\data\dsh-debug-logger\console.log" -Pattern "dsh-picker:json" | Select-Object -Last 1
+```
+
+**在信任这行之前必须知道的坑 **[实测]**：本插件是通过 `wc.on("console-message")` 转发渲染进程 console 的，
+而 Chromium 传给该事件的 message 是**已经序列化过的字符串** —— 直接 `console.log(对象)` 在日志里只会变成字面的
+`[object Object]`（人可读的 `[dsh-picker]` 那两行**不含字段**）。所以选择器**额外**打了一行 `JSON.stringify` 的结果。
+你自己写任何日志转发时，同样要处理这一点。
 
 只在用户没法操作时才退回自己写探针（没有图形界面、无人值守运行），并且 §2 的只读铁律依然适用。
 

@@ -126,6 +126,41 @@ JSON.stringify({ title: document.title, url: location.href, body: document.body 
 
 > 退出键用 `Ctrl+Esc` 而不是单独的 `Esc`：**QQ 自己用 `Esc` 关窗口**，占用它会导致「想退出调试反而把窗口关了」。
 
+### 5.1 怎么把选中的元素交给别人（或交给 agent）
+
+这是这个选择器真正的用途：**用户负责指，详情自动变成文本**。以前要说「联系人列表里那一项」，现在点一下就够。
+
+三条路径，任选：
+
+1. **剪贴板（默认，给人用）**：选中后详情**自动复制**，直接粘贴即可。内容包括类名、尺寸、圆角、背景，以及**命中的 CSS 来源规则**（哪个样式表、哪条选择器）。
+2. **日志文件（给 agent 用）**：详情同时会写进
+   `<profile>/data/dsh-debug-logger/console.log`，前缀 **`[dsh-picker:json]`**，后面是可直接解析的 JSON。用 `grep` / `Select-String` 精确抓最近一次选择即可：
+
+   ```powershell
+   Select-String -Path "$env:USERPROFILE\..\path\to\console.log" -Pattern "dsh-picker:json" | Select-Object -Last 1
+   ```
+
+   实际条目形如：
+
+   ```text
+   [dsh-picker:json] [{"info":{"tag":"DIV","cls":"item__content item-dragging-over",
+     "selector":"div.viewport-list... > div.recent-contact-item > div.item__content",
+     "rect":{"w":304,"h":72,"left":64,"top":340},"radius":"14px",
+     "boxShadow":"none","background":"rgba(0, 0, 0, 0.06)","zIndex":"auto",
+     "normalized":{"x":0.0546,"y":0.4509,"w":0.2594,"h":0.0955}},
+     "rules":[{"owner":"lens-skin","selector":"body:is(...) .recent-contact-item .item__content",
+               "bg":"-","radius":"var(--lg-chrome)","shadow":"-"}]}]
+   ```
+
+   `rules` 就是「谁画的这个框」的答案 —— 一个原始命中测试探针给不出这些。
+
+   > **实测坑**：不要把对象直接 `console.log` 就以为日志能读到。本插件是把渲染进程的 console
+   > 转发到文件（`wc.on("console-message")`），而 Chromium 传过来的是**已序列化的字符串** ——
+   > 对象会变成字面的 `[object Object]`。所以选择器**额外**打了一行 JSON 字符串；
+   > 如果你自己写类似的日志转发，同样要 `JSON.stringify`。
+
+3. **控制台**：DevTools 里搜 `[dsh-picker]`（人能看）或 `[dsh-picker:json]`（能解析）。
+
 ### 自定义快捷键
 
 设置页（QQ 设置 → 插件 → DSH 调试日志）里有「自定义快捷键」区：**点一下输入框，然后直接按你想用的组合键**即可（与 QQ 原生设置一致，直接侦听键盘；单独按 `Esc` 取消录制）。改完点「应用并保存」，**立即生效、无需重启**，主界面会通过 `storage` 事件同步。
@@ -175,7 +210,8 @@ Cannot bind an API on top of an existing property
 ```text
 main.js        14B58FE71478EEF4BC7C1C3E07259D82C47BFC99CCC2ED2AEAA15664F8A29C60
 manifest.json  B97278333952356A043A7A79EB5545CA76CC02A3CBBDC8CAF0151CF6A49CE3C2
-renderer.js    59C59CE55FDBEA8A2D6BCF8CCA6B6149ADD330C5D8D2ACF7BF1423BCE694C981
+renderer.js    E562B09EB7881A5305F2234E42826A0211ABC9283605FC107F924E5DC473EA81
 ```
 
-`main.js` 的哈希与 v1.3 完全一致 —— v1.4 没有改动主进程脚本。
+`main.js` 的哈希与 v1.3 完全一致 —— v1.4 没有改动主进程脚本。`renderer.js` 是 v1.4 新增，此后修过一次
+（把选中详情以 JSON 字符串写进日志，见 §5.1 的实测坑），所以哈希与 v1.4 首发版本不同。

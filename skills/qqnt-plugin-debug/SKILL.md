@@ -2,10 +2,10 @@
 name: qqnt-plugin-debug
 description: >
   Debug a QQNT / LiteLoaderQQNT plugin on a live client: bundled dsh-debug-logger (console, exception,
-  window-creation and IPC logs with 5 MB rotation), element picker (Ctrl+Shift+C, Ctrl multi-select,
-  auto-copy) to see which element draws a box, eval.txt REPL running JS in every window, DOM hit-test and
-  visibility probes, IPC capture, real mouse input, and the measured pitfalls catalogue. Triggers: 插件不生效,
-  插件调试, QQNT 插件排错, eval.txt, 元素选择器, debug QQ plugin, background plugin 点不到, 改设置要重启.
+  window-creation and IPC logs with 5 MB rotation), an element picker (Ctrl+Shift+C) that turns the thing the
+  user points at into text, eval.txt REPL running JS in every window, DOM hit-test and visibility probes, IPC
+  capture, real mouse input, and the measured pitfalls catalogue. Triggers: 界面哪个地方不对, 哪个控件要改,
+  哪个按钮要调, 这块要优化, 这里要加东西, 我指的那个元素, 元素选择器, 插件不生效, 插件调试, QQNT 插件排错, eval.txt.
 license: MIT
 ---
 
@@ -152,6 +152,20 @@ This is §7 applied to element questions:
 That single exchange replaces several rounds of you guessing selectors from a screenshot. Writing your own
 `elementFromPoint` / hit-test probe instead is the slow path **and** often wrong: the picker reports the
 *matched CSS source rules*, which a raw hit-test cannot.
+
+**You can also read it straight out of the log file — no user paste needed. [measured]** Every selection is
+appended to `<profile>/data/dsh-debug-logger/console.log` as one JSON line prefixed `[dsh-picker:json]`, so
+you (the agent) can just grep the last one:
+
+```powershell
+Select-String -Path "<profile>\data\dsh-debug-logger\console.log" -Pattern "dsh-picker:json" | Select-Object -Last 1
+```
+
+**Trap you must know before you trust that line [measured]**: the logger forwards the renderer console via
+`wc.on("console-message")`, and Chromium hands that event an **already-serialized string** — a logged *object*
+becomes the literal text `[object Object]`. The picker therefore emits an extra `JSON.stringify` line
+(`[dsh-picker:json] …`); the human-readable `[dsh-picker]` lines do **not** contain the fields. Any log
+forwarding you write yourself needs the same treatment.
 
 Only fall back to your own probe when the user cannot run it (no GUI access, unattended run) — and §2's
 read-only rule still applies.
