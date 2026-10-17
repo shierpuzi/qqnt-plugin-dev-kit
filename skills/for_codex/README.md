@@ -56,6 +56,17 @@ The debug module also **bundles the debug plugin** at
 [`../../plugins/dsh-debug-logger/`](../../plugins/dsh-debug-logger/) (the plugin's own `README.md` is
 intentionally not duplicated). Keep copies in sync when you edit the plugin.
 
+> The copy is verified by comparing against the sibling directory, not by a hard-coded hash (a stored hash
+> silently goes stale the next time upstream fixes the plugin). Run this after any plugin edit — a mismatch
+> means the bundle drifted:
+>
+> ```powershell
+> $a = '<repo>\plugins\dsh-debug-logger'; $b = '<repo>\skills\for_codex\qqnt-plugin-debug\plugins\dsh-debug-logger'
+> foreach ($f in 'main.js','manifest.json','renderer.js') {
+>     "$f : " + ((Get-FileHash "$a\$f").Hash -eq (Get-FileHash "$b\$f").Hash)
+> }
+> ```
+
 Since plugin v1.4.0 the bundle has **two injects**: `main.js` (console/exception/window/IPC logger) and
 `renderer.js` — the **element picker**. `Ctrl+Shift+C` picks a UI element and auto-copies its details
 (class / size / radius / background / matched CSS source rules) to the clipboard; every pick is also
