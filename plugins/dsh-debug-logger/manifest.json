@@ -3,13 +3,14 @@
     "type": "extension",
     "name": "DSH 调试日志",
     "slug": "dsh-debug-logger",
-    "description": "把主进程 / 预加载 / 渲染进程的 console 输出与未捕获异常写入文件，用于排查插件 bug。日志位置：<profile>/data/dsh-debug-logger/",
-    "version": "1.3.0",
+    "description": "把主进程 / 预加载 / 渲染进程的 console 输出与未捕获异常写入文件，用于排查插件 bug；内置元素选择器（Ctrl+Shift+C 拾取、Ctrl 多选、选中自动复制详情到剪贴板）。日志位置：<profile>/data/dsh-debug-logger/",
+    "version": "1.4.0",
     "authors": [
         { "name": "dsh" }
     ],
     "platform": ["win32", "darwin", "linux"],
     "injects": {
-        "main": "./main.js"
+        "main": "./main.js",
+        "renderer": "./renderer.js"
     }
 }

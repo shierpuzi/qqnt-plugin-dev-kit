@@ -1,6 +1,6 @@
 # DSH 调试日志（dsh-debug-logger）
 
-一个「把该看的东西全部落盘」的排查插件：QQ 主进程 / 预加载脚本 / 渲染进程的日志、异常、窗口创建与显示、webContents 创建、以及一部分主进程 IPC 频道，统统写进 `<profile>/data/dsh-debug-logger/` 下的文本文件。再附一个**迷你 devtools**：往文件里写一段 JS，插件会在所有窗口执行并把结果记下来。
+一个「把该看的东西全部落盘」的排查插件：QQ 主进程 / 预加载脚本 / 渲染进程的日志、异常、窗口创建与显示、webContents 创建、以及一部分主进程 IPC 频道，统统写进 `<profile>/data/dsh-debug-logger/` 下的文本文件。再附两样工具：**迷你 devtools**（往文件里写一段 JS，插件在所有窗口执行并记录结果）和**元素选择器**（`Ctrl+Shift+C` 把界面上的元素点出来看样式）。
 
 > 这个插件是**正在使用、已验证**的版本，从实际环境原样复制而来（逐字节一致，见文末哈希）。
 > 它只读环境、只写自己的日志目录，不修改 QQ 本身的任何文件。
@@ -47,7 +47,7 @@
 
 `[tag]` 里 `main` = 主进程，`renderer:…` = 某个渲染进程，`window` = 窗口/webContents 事件，`ipc` = IPC 频道记录，`logger` = 插件自身。
 
-> 版本号说明：`manifest.json` 里写的是 `1.0.0`，`main.js` 内部自报 `v1.3`。以 `console.log` 首行为准。
+> 版本号说明：`manifest.json` 现在是 `1.4.0`（v1.4 新增了 `renderer.js` 元素选择器），而 `main.js` 内部自报的仍是 `v1.3` —— `main.js` 在 v1.4 里**没有改动**（只新增了 renderer 与 manifest 字段），所以日志首行还是 `loaded v1.3`。以 `console.log` 首行为准。
 
 ### 5 MB 上限与轮转规则
 
@@ -109,7 +109,43 @@ Object.keys(window).filter(k => /lite|api|bridge|open|qq|dsh|ipc/i.test(k)).map(
 JSON.stringify({ title: document.title, url: location.href, body: document.body ? document.body.outerHTML.slice(0, 2000) : null })
 ```
 
-## 5. 停用 / 卸载
+## 5. 元素选择器（v1.4 新增）
+
+`renderer.js` 提供了一个**类 Chrome DevTools 的元素选择器**，用来回答「这个框是谁画的」「这个元素叫什么、多大、圆角多少」。以前靠截图猜，现在直接把元素点出来。
+
+| 操作 | 效果 |
+| --- | --- |
+| `Ctrl+Shift+C` | 进入/切换元素拾取模式（也可在设置页点「开始抓取」） |
+| 鼠标划过元素 | 蓝框高亮 + 顶部显示 `选择器 宽x高 r=圆角` |
+| 点击元素 | 选中并把类名、尺寸、圆角、背景、**样式来源规则**输出到 console |
+| **按住 `Ctrl` 点击** | 多选（再次 `Ctrl` 点击同一元素 = 反选） |
+| 选中后 | 详情**自动复制到剪贴板**，并弹气泡提示「已复制」 |
+| `Ctrl+Shift+X` | 再复制一次已选元素详情 |
+| `Ctrl+Shift+B` | 框选：拖动列出框内元素（输出到 console） |
+| `Ctrl+Esc` | 逐级退出（拾取 → 框选 → 关工具） |
+
+> 退出键用 `Ctrl+Esc` 而不是单独的 `Esc`：**QQ 自己用 `Esc` 关窗口**，占用它会导致「想退出调试反而把窗口关了」。
+
+### 自定义快捷键
+
+设置页（QQ 设置 → 插件 → DSH 调试日志）里有「自定义快捷键」区：**点一下输入框，然后直接按你想用的组合键**即可（与 QQ 原生设置一致，直接侦听键盘；单独按 `Esc` 取消录制）。改完点「应用并保存」，**立即生效、无需重启**，主界面会通过 `storage` 事件同步。
+
+也可以用代码改：
+
+```js
+window.__dshPicker.setHotkeys({ pick: "F8" })   // 单键也行
+window.__dshPicker.getHotkeys()
+```
+
+### 一个实测坑：剪贴板
+
+`navigator.clipboard.writeText` 在 QQ 里会抛 `NotAllowedError: Document is not focused`（Electron 要求文档有焦点）。所以复制走**双路径**：先试 Clipboard API，失败立刻退到 `document.execCommand("copy")`（实测后者对失焦窗口有效）。
+
+### 调试中途接手？注意模块实例
+
+`local://profile/...` 与 `local:///E:/...` 是**两个不同的模块实例**。用 eval 通道做探针时，请用页面自己的实例（`window.__dshPicker`），不要自己 `import` —— 否则你操作的是另一份状态，还会多建一层覆盖层。
+
+## 6. 停用 / 卸载
 
 - 在 LiteLoaderQQNT 的设置界面里禁用该插件；或
 - 把 `dsh-debug-logger` 加进 `<profile>/data/LiteLoader/config.json` 的 `disabled_plugins` 数组：
@@ -122,7 +158,7 @@ JSON.stringify({ title: document.title, url: location.href, body: document.body 
 
 - 彻底卸载：删掉 `<profile>/plugins/dsh-debug-logger/` 目录；日志文件在 `<profile>/data/dsh-debug-logger/`，按需自行清理。
 
-## 6. 已知无关噪声
+## 7. 已知无关噪声
 
 在**辅助窗口**里，所有带 preload 的插件都会刷：
 
@@ -132,11 +168,14 @@ Cannot bind an API on top of an existing property
 
 这是 LiteLoaderQQNT 加载器侧的问题（同一个属性被多次 `contextBridge` 绑定），**与本插件无关**，也**不会**影响日志功能。看到它不用当成 bug 追。
 
-## 7. 文件哈希（SHA256）
+## 8. 文件哈希（SHA256）
 
-原样复制自实际在用的插件，可与源文件比对：
+原样复制自实际在用的插件，可与源文件比对（哈希基于 **LF 换行** 的原始文件；Windows 上 checkout 成 CRLF 后哈希会不同，属正常）：
 
 ```text
 main.js        14B58FE71478EEF4BC7C1C3E07259D82C47BFC99CCC2ED2AEAA15664F8A29C60
-manifest.json  E19379B22B5FD5269E9A6E209F80FD01AD7448A0078A8262C52271745D377487
+manifest.json  B97278333952356A043A7A79EB5545CA76CC02A3CBBDC8CAF0151CF6A49CE3C2
+renderer.js    59C59CE55FDBEA8A2D6BCF8CCA6B6149ADD330C5D8D2ACF7BF1423BCE694C981
 ```
+
+`main.js` 的哈希与 v1.3 完全一致 —— v1.4 没有改动主进程脚本。

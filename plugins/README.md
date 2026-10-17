@@ -4,7 +4,7 @@
 
 | 目录 | 说明 | 建议 |
 | --- | --- | --- |
-| [`dsh-debug-logger/`](dsh-debug-logger/README.md) | DSH 调试日志：把主进程/渲染进程的 console、异常、窗口创建与显示、部分 IPC 频道写进文件，附迷你 devtools | ✅ 推荐，排查插件 bug 的第一件工具 |
+| [`dsh-debug-logger/`](dsh-debug-logger/README.md) | DSH 调试日志：把主进程/渲染进程的 console、异常、窗口创建与显示、部分 IPC 频道写进文件，附迷你 devtools 与**元素选择器**（`Ctrl+Shift+C` 把界面元素点出来看类名/尺寸/圆角/样式来源，支持多选与自定义快捷键） | ✅ 推荐，排查插件 bug 的第一件工具 |
 
 ## 怎么安装
 
