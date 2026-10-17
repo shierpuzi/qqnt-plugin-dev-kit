@@ -25,17 +25,21 @@ families coexist in one checkout.
 <DSH_HOME>/skills/qqnt-plugin-debug/SKILL.md
 <DSH_HOME>/skills/qqnt-loader-install/SKILL.md
 <DSH_HOME>/skills/qqnt-capability-limits/SKILL.md
-<DSH_HOME>/skills/qqnt-plugin-debug/plugins/dsh-debug-logger/{manifest.json,main.js}
+<DSH_HOME>/skills/qqnt-plugin-debug/plugins/dsh-debug-logger/{manifest.json,main.js,renderer.js}
 ```
 
 - Copy **all four directories**; they cross-reference each other by skill name (never by path).
+- Copy the bundled plugin **whole** — since v1.4.0 it has two injects (`main.js` logger + `renderer.js` element
+  picker). Dropping `renderer.js` silently loses the picker; dropping `main.js` loses the logs.
 - **Start a new session** afterwards — the catalog is built per session.
 - Verify: the session skill list should show all four, and asking "how do I debug a QQNT plugin?" should load
   `qqnt-plugin-debug`.
 
-The debug module also **bundles the debug plugin** at `qqnt-plugin-debug/plugins/dsh-debug-logger/` — a byte-identical
-copy of [`../plugins/dsh-debug-logger/`](../plugins/dsh-debug-logger/). Keep both in sync if you edit the plugin; the
-skill installs standalone without fetching anything.
+The debug module also **bundles the debug plugin** at `qqnt-plugin-debug/plugins/dsh-debug-logger/` — the three
+runtime files (`main.js`, `manifest.json`, `renderer.js`) are a byte-identical copy of
+[`../plugins/dsh-debug-logger/`](../plugins/dsh-debug-logger/) (verify with `Get-FileHash -Algorithm SHA256`; the
+plugin's own `README.md` is intentionally not duplicated). Keep both in sync if you edit the plugin; the skill
+installs standalone without fetching anything.
 
 ## Authoring constraints (verified against the DSH source, 2026-10)
 
@@ -48,7 +52,9 @@ skill installs standalone without fetching anything.
   provenance) and put every trigger phrase inside `description`.
 - **`description` budget: stay ≤ 500 characters.** Upstream is
   `DEFAULT_CATALOG_DESCRIPTION_MAX_LENGTH = 500`; a local patch may raise it to 900, but nothing here relies on that
-  (current sizes: dev 492, debug 491, loader-install 481, capability-limits 494).
+  (current sizes: dev 492, debug 489, loader-install 481, capability-limits 494). The count is the *joined* body:
+  fold the `>` block to a single line, collapse whitespace, and `len()`. Adding a trigger phrase therefore means
+  trimming something else — check the number **after** the edit, in the same run.
 - **Self-contained**: no network fetch, no dependency on another skill being installed. Relative paths mentioned in a
   skill resolve against the base directory DSH reports in that skill's `<skill_resources>` block.
 - Keep each module focused; if a module outgrows one topic, split it again rather than growing the description.

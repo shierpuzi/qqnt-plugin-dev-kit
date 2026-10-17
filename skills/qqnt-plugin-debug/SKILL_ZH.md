@@ -1,11 +1,11 @@
 ---
 name: qqnt-plugin-debug
 description: >
-  Debug a QQNT / LiteLoaderQQNT plugin against a live QQ client: install the bundled dsh-debug-logger (console,
-  exception, window-creation and IPC logs with 5 MB rotation), drive its eval.txt REPL that runs JS in every window,
-  run DOM hit-test and visibility probes, capture IPC channels including already-registered handlers, inject real
-  mouse input, and work through the measured pitfalls catalogue. Triggers: 插件不生效, 插件调试, QQNT 插件排错,
-  eval.txt, debug QQ plugin, background plugin 点不到, 改设置要重启.
+  Debug a QQNT / LiteLoaderQQNT plugin on a live client: bundled dsh-debug-logger (console, exception,
+  window-creation and IPC logs with 5 MB rotation), element picker (Ctrl+Shift+C, Ctrl multi-select,
+  auto-copy) to see which element draws a box, eval.txt REPL running JS in every window, DOM hit-test and
+  visibility probes, IPC capture, real mouse input, and the measured pitfalls catalogue. Triggers: 插件不生效,
+  插件调试, QQNT 插件排错, eval.txt, 元素选择器, debug QQ plugin, background plugin 点不到, 改设置要重启.
 license: MIT
 ---
 
@@ -49,6 +49,10 @@ Copy-Item "<skill_dir>\plugins\dsh-debug-logger" "<profile>\plugins\dsh-debug-lo
 - `<profile>\data\dsh-debug-logger\console.log` 的首行包含 `loaded v…`，或
 - QQ 的设置列表里出现该插件（“DSH 调试日志”）。
 
+**从 v1.4.0 起插件有两个 inject**：`main.js`（日志本体）与 `renderer.js` —— **元素选择器**（§3.0）。
+必须复制**整个目录**；只拷 `main.js` 会静默丢掉选择器。v1.4.0 **没有改动 `main.js`**，所以日志首行仍自报
+`loaded v1.3` —— 这个不一致是预期的，以 `manifest.json` 为准。
+
 输出落在 `<profile>\data\dsh-debug-logger\`：
 
 | 文件 | 内容 |
@@ -57,6 +61,7 @@ Copy-Item "<skill_dir>\plugins\dsh-debug-logger" "<profile>\plugins\dsh-debug-lo
 | `errors.log` | 只含 warn/error/assert/exception 行 —— **先读这个** |
 | `eval-result.log` | `eval.txt` REPL 的执行结果 |
 | `eval.txt` | **输入**：写在这里的 JS 会在**每个**窗口中执行 |
+| 元素选择器 | `renderer.js`（v1.4.0）—— `Ctrl+Shift+C` 把界面元素点出来，见 §3.0 |
 
 它还会捕获 `preload-error`、`uncaughtException` / `unhandledRejection`、`render-process-gone`、
 `did-fail-load`、`web-contents-created`、窗口 `CREATED` 以及
@@ -116,6 +121,45 @@ QQ 的插件设置）。
 把「快速迭代」留给*实现本身*（贴进 `eval.txt`，它每次写入都会重新求值，不受 ESM 缓存影响），把重启留给打包好的文件。
 
 ## 3. 探针（只读 —— 写进 `eval.txt`）
+
+### 3.0 元素选择器 —— 先用它，再考虑自己写探针 **[实测]**
+
+`renderer.js`（v1.4.0）是一个类 Chrome DevTools 的拾取器，用来一次点击回答「这个框是谁画的、它叫什么、多大、
+圆角多少、命中了哪些规则」—— 在动手编探针之前先用它。它刻意做成**不依赖任何其它插件**的独立实现，也不需要
+设置页。
+
+| 操作 | 效果 |
+|---|---|
+| `Ctrl+Shift+C` | 进入/切换拾取模式（也可在插件设置页点「开始抓取」） |
+| 鼠标划过 | 蓝框高亮 + 顶部标签显示 `选择器 宽x高 r=圆角` |
+| 点击 | 选中；把类名、尺寸、圆角、背景和**命中的 CSS 来源规则**输出到 console |
+| **按住 `Ctrl` 点击** | 多选（再次 Ctrl 点击同一元素 = 反选） |
+| 选中之后 | 详情**自动复制到剪贴板**，并弹气泡确认 |
+| `Ctrl+Shift+X` | 再复制一次最近选中的内容 |
+| `Ctrl+Shift+B` | 拖框：列出框内元素（输出到 console） |
+| `Ctrl+Esc` | 逐级退出：拾取 → 拖框 → 关工具 |
+
+**退出键必须是 `Ctrl+Esc` 而不是 `Esc`** **[实测]**：QQ 自己用 `Esc` **关窗口**，占用它就意味着「想退出调试
+反而把窗口关了」。同一个功能里还有第二个坑：`KeyboardEvent.key` 的值是 `"Escape"`，而用户和配置习惯写
+`"Esc"` —— 早期版本直接做字符串比较，于是 `Ctrl+Esc` **永远匹配不上**，退出键看起来完全没反应（提示条一直挂在
+屏幕上关不掉）。所以必须做按键别名归一化（`esc`/`escape`、`del`/`delete`、`space`）。
+
+**可自定义、无需重启**：QQ 设置 → 插件 → DSH 调试日志 → 自定义快捷键 —— 点一下输入框直接按组合键即可
+（单独按 `Esc` 取消录制）；也可以用代码 `window.__dshPicker.setHotkeys({ pick: "F8" })` / `getHotkeys()`。
+改完立即生效，走的是与配置同步同一条 `storage` 事件通道。
+
+如果你要自己重做这套交互，两个实测坑必须先知道：
+
+1. **剪贴板是双路径兜底。** `navigator.clipboard.writeText` 在 QQ 窗口里会抛
+   `NotAllowedError: Document is not focused`（Electron 40 要求文档有焦点），所以拾取器先试 Clipboard API，
+   失败**立刻**退到 `document.execCommand("copy")` —— **实测后者在失焦窗口里有效**。不要假设单条路径够用。
+2. **`local://profile/...` 与 `local:///...` 是两个不同的模块实例。** 如果你在 `eval.txt` 探针里自己
+   `import()` 拾取器，拿到的是**第二份实例**，它有自己的状态 —— 它会另外建一层覆盖层并操作那一层，而屏幕上
+   正在跑的那个纹丝不动。要用页面**自己的**实例 `window.__dshPicker`（存活标志是
+   `window.__dshPickerOn` / `__dshPickerBooted`）。
+
+覆盖层卫生，与任何全屏层一样（见坑 10）：默认 `pointer-events: none`，**只在**拾取/拖框时 `auto` 并立刻恢复；
+拖框模式拖完一次自动退出 —— 否则覆盖层会吞掉 QQ 的全部点击，用户只看到界面莫名其妙点不动。
 
 ```js
 // 1) Who is stealing the click / why is a control unreachable
@@ -238,6 +282,23 @@ public class M {
     窗口身份守卫，或把它限制在单个窗口。如果读回值自相矛盾，先怀疑这一点，再怀疑 QQ。
 16. **`local://` 在沙箱窗口里不可用** —— 在 `about:blank` 窗口里
     `import("local://profile/…/x.js?v=" + Date.now())` 会因 CORS 策略报错（§2）。要更新 ESM 模块，重启 QQ。
+17. **矩形非零 ≠ 元素可见 —— 虚拟列表里藏着隐藏的测量副本** **[实测]**。QQ 的虚拟列表（`.viewport-list`）在
+    `.viewport-list__measure` 里留了一份**测量副本**，它带着**同一个** `.recent-contact-item` 类：
+    `visibility: hidden`（仍占位，`getBoundingClientRect()` 完全非零），而且宽度是**整行宽** —— 实测
+    1029×72 @ (56,92)，旁边的真实行是 304×72 @ (64,100)。于是它躲过了你通常会写的**每一道**几何守卫：
+    最小尺寸（`>10px`）、尺寸上限（`MAX_TARGET = 2000`，1029 < 2000 永远触发不了）、`Number.isFinite` 的 NaN
+    检查、视口外过滤（它就在视口内）。按几何遍历元素时的症状：一个**不会随列表滚动的巨型圆角框**。必须补一道
+    可见性守卫，而且要**顺便复用本来就要做的那次样式读取**：在同一轮里读 `getComputedStyle(el)` 拿
+    `borderTopLeftRadius`，然后 `if (cs.visibility === "hidden") continue;`。只读元素**自己的** `visibility`
+    （父级隐藏而自身 `visibility: visible` 的元素确实可见；`display: none` 是零矩形，已被最小尺寸挡掉）。
+    探针：列出所有命中项的 `w / h / left / visibility / parent.className`，宽度明显大于同级兄弟的那个就是它。
+    这也是调试模块自身踩过的坑 —— 见 `examples/lens-skin/LESSONS.md` 第 19 条。
+18. **规则没匹配 ≠ 规则被覆盖 —— 先证明选择器能命中，再怀疑优先级** **[实测]**。Lens 皮肤里所有规则都写成
+    `body.q-theme-tokens-light …`，于是暗色主题（`q-theme-tokens-dark`）下**一条都匹配不上**，整套皮肤静默消失 ——
+    看起来像「插件死了」，而不是 CSS bug。动优先级之前，先用 `querySelectorAll(sel).length` 量命中，并在**两种主题
+    下各测一次**计算值。同一族的问题：QQ 的原生行背景画在**子元素**上
+    （`.recent-contact-item--top .item__content`，用 `--overlay_top` 上色且 `border-radius: 0`），所以只给父元素加
+    圆角，子元素的方角会"露"出来 —— 用选择器（§3.0）先确认**到底是谁在画这块底**，然后父子一起收边。
 
 ## 7. 与用户配合（问询）—— 多用问询工具
 
