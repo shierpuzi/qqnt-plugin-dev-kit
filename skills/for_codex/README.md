@@ -7,7 +7,7 @@ only the packaging and the agent-facing tool mapping are adapted.
 | Skill directory | Loads when the task is about |
 |---|---|
 | `qqnt-plugin-dev/` | writing / changing a plugin: manifest v4, the three worlds, hooks/APIs, recipes, delivery |
-| `qqnt-plugin-debug/` | making it work on a live client: bundled logger, `eval.txt` REPL, probes, IPC capture, real mouse, 16 pitfalls, ask-the-user loop |
+| `qqnt-plugin-debug/` | making it work on a live client: bundled logger, `eval.txt` REPL, probes, IPC capture, real mouse, element picker (`Ctrl+Shift+C`), 18 pitfalls, ask-the-user loop |
 | `qqnt-loader-install/` | installing / repairing the loader, QQ's file verification, the `QQNT.dll` signature patch (verify → derive → update) |
 | `qqnt-capability-limits/` | deciding whether a feature is reachable from a plugin at all (native vs JS boundary, native-settings-first) |
 
@@ -20,6 +20,7 @@ only the packaging and the agent-facing tool mapping are adapted.
   so `qqnt-loader-install` describes the app root in plain words instead of `versions\<ver>\resources\app`.
   Codex's own description limit is **1024 characters** (not the DSH catalog limit of 500);
   the plain-word rewrite brings that one description to 507, which is fine here.
+  Current joined sizes: dev 492, debug 481, loader-install 507, capability-limits 494.
 - **Base-directory wording.** `skill_resources` is a DSH concept; the wording now says Codex
   reports the skill's absolute directory at load time.
 - **Ask-the-user section covers both.** `qqnt-plugin-debug` §7 documents
@@ -39,7 +40,7 @@ only the packaging and the agent-facing tool mapping are adapted.
 ~/.codex/skills/qqnt-loader-install/SKILL.md
 ~/.codex/skills/qqnt-capability-limits/SKILL.md
 ~/.codex/skills/qqnt-plugin-debug/SKILL_EN.md            (optional English reference)
-~/.codex/skills/qqnt-plugin-debug/plugins/dsh-debug-logger/{manifest.json,main.js}
+~/.codex/skills/qqnt-plugin-debug/plugins/dsh-debug-logger/{manifest.json,main.js,renderer.js}
 ```
 
 - Copy **all four directories**; they cross-reference each other by skill name (never by path).
@@ -50,8 +51,18 @@ only the packaging and the agent-facing tool mapping are adapted.
   (on Windows set `PYTHONUTF8=1` first, or the GBK codec will throw).
 
 The debug module also **bundles the debug plugin** at
-`qqnt-plugin-debug/plugins/dsh-debug-logger/` — a byte-identical copy of
-[`../../plugins/dsh-debug-logger/`](../../plugins/dsh-debug-logger/). Keep copies in sync when you edit the plugin.
+`qqnt-plugin-debug/plugins/dsh-debug-logger/` — its three runtime files
+(`main.js`, `manifest.json`, `renderer.js`) are a byte-identical copy of
+[`../../plugins/dsh-debug-logger/`](../../plugins/dsh-debug-logger/) (the plugin's own `README.md` is
+intentionally not duplicated). Keep copies in sync when you edit the plugin.
+
+Since plugin v1.4.0 the bundle has **two injects**: `main.js` (console/exception/window/IPC logger) and
+`renderer.js` — the **element picker**. `Ctrl+Shift+C` picks a UI element and auto-copies its details
+(class / size / radius / background / matched CSS source rules) to the clipboard; every pick is also
+appended to `<profile>/data/dsh-debug-logger/console.log` as a `[dsh-picker:json]` line, so an agent can
+read the last one directly. Copy the **whole** plugin directory — dropping `renderer.js` silently loses
+the picker. (`main.js` was unchanged in v1.4.0, so the log still self-reports `loaded v1.3`; go by
+`manifest.json`.)
 
 ## Relationship to the sibling DSH skills
 

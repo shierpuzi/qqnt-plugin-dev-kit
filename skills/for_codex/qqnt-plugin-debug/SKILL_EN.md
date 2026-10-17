@@ -1,11 +1,11 @@
 ---
 name: qqnt-plugin-debug
 description: >
-  Debug a QQNT / LiteLoaderQQNT plugin against a live QQ client: install the bundled dsh-debug-logger (console,
-  exception, window-creation and IPC logs with 5 MB rotation), drive its eval.txt REPL that runs JS in every window,
-  run DOM hit-test and visibility probes, capture IPC channels including already-registered handlers, inject real
-  mouse input, and work through the measured pitfalls catalogue. Triggers: 插件不生效, 插件调试, QQNT 插件排错,
-  eval.txt, debug QQ plugin, background plugin 点不到, 改设置要重启.
+  Debug a QQNT / LiteLoaderQQNT plugin on a live client: bundled dsh-debug-logger (console, exception,
+  window-creation and IPC logs with 5 MB rotation), an element picker (Ctrl+Shift+C) that turns the thing the
+  user points at into text, eval.txt REPL running JS in every window, DOM hit-test and visibility probes, IPC
+  capture, real mouse input, and the measured pitfalls catalogue. Triggers: 界面哪个地方不对, 哪个控件要改,
+  哪个按钮要调, 这块要优化, 这里要加东西, 我指的那个元素, 元素选择器, 插件不生效, 插件调试, QQNT 插件排错, eval.txt.
 license: MIT
 ---
 
@@ -53,6 +53,10 @@ Then **restart QQ** (plugins load once at startup). Verify:
 - first line of `<profile>\data\dsh-debug-logger\console.log` contains `loaded v…`, or
 - QQ's settings list shows the plugin ("DSH 调试日志").
 
+**Since v1.4.0 the plugin has two injects**: `main.js` (this logger) and `renderer.js` — **the element picker**
+(§3.0). Copy the **whole directory**; copying only `main.js` silently loses the picker. `main.js` itself did not
+change in v1.4.0, so the log still self-reports `loaded v1.3` — that mismatch is expected, go by the manifest.
+
 Output lands in `<profile>\data\dsh-debug-logger\`:
 
 | File | Content |
@@ -61,6 +65,7 @@ Output lands in `<profile>\data\dsh-debug-logger\`:
 | `errors.log` | only warn/error/assert/exception lines — **read this first** |
 | `eval-result.log` | results of the `eval.txt` REPL |
 | `eval.txt` | **input**: JS written here is executed in **every** window |
+| element picker | `renderer.js` (v1.4.0) — `Ctrl+Shift+C` to pick UI elements; see §3.0 |
 
 It also captures `preload-error`, `uncaughtException` / `unhandledRejection`, `render-process-gone`,
 `did-fail-load`, `web-contents-created`, window `CREATED` and
@@ -129,6 +134,77 @@ the reliable loop is: edit → **restart QQ** → verify. Keep the fast iteratio
 packaged file.
 
 ## 3. Probes (read-only — write into `eval.txt`)
+
+### 3.0 The element picker — hand it to the user, do not write a probe for it **[measured]**
+
+`renderer.js` (v1.4.0) is a Chrome-DevTools-class picker that answers "who draws this box, what is it called,
+how big is it, what is its border-radius, which rules matched it" in one click. **It was built for a human at the
+keyboard, not for you to drive**: one click auto-copies the full details (class / size / radius / background /
+matched CSS source rules) to the clipboard and shows a toast. That is the point — the user does the pointing, the
+answer arrives as text you can read.
+
+**So the default move is: ask the user to use it, then paste what they got — do not reimplement it in a probe.**
+This is §7 applied to element questions:
+
+> "Press `Ctrl+Shift+C` in the main window, click the thing that looks wrong, and paste what lands on your
+> clipboard (it's copied automatically)."
+
+That single exchange replaces several rounds of you guessing selectors from a screenshot. Writing your own
+`elementFromPoint` / hit-test probe instead is the slow path **and** often wrong: the picker reports the
+*matched CSS source rules*, which a raw hit-test cannot.
+
+**You can also read it straight out of the log file — no user paste needed. [measured]** Every selection is
+appended to `<profile>/data/dsh-debug-logger/console.log` as one JSON line prefixed `[dsh-picker:json]`, so
+you (the agent) can just grep the last one:
+
+```powershell
+Select-String -Path "<profile>\data\dsh-debug-logger\console.log" -Pattern "dsh-picker:json" | Select-Object -Last 1
+```
+
+**Trap you must know before you trust that line [measured]**: the logger forwards the renderer console via
+`wc.on("console-message")`, and Chromium hands that event an **already-serialized string** — a logged *object*
+becomes the literal text `[object Object]`. The picker therefore emits an extra `JSON.stringify` line
+(`[dsh-picker:json] …`); the human-readable `[dsh-picker]` lines do **not** contain the fields. Any log
+forwarding you write yourself needs the same treatment.
+
+Only fall back to your own probe when the user cannot run it (no GUI access, unattended run) — and §2's
+read-only rule still applies.
+
+| Action | Effect |
+|---|---|
+| `Ctrl+Shift+C` | enter / toggle pick mode (also from the plugin's settings page) |
+| hover | blue outline + a tag showing `selector WxH r=radius` |
+| click | select; prints class, size, radius, background and **the matched CSS source rules** to the console |
+| **hold `Ctrl` + click** | multi-select (Ctrl-click the same element again = deselect) |
+| after a selection | details are **auto-copied to the clipboard** and a toast confirms it |
+| `Ctrl+Shift+X` | copy the last selection again |
+| `Ctrl+Shift+B` | rubber-band box: list the elements inside it (to console) |
+| `Ctrl+Esc` | step out, one level at a time: pick → box → tool off |
+
+**The exit key must be `Ctrl+Esc`, not `Esc`** **[measured]**: QQ binds `Esc` to *closing the window*, so taking
+it means "I tried to quit the debugger and lost my window". Second trap in the same feature: `KeyboardEvent.key`
+is the string `"Escape"` while users and configs write `"Esc"` — an early build compared the strings directly, so
+`Ctrl+Esc` **never matched** and the exit key looked completely dead (hint bar stuck on screen). Always normalize
+key aliases (`esc`/`escape`, `del`/`delete`, `space`).
+
+**Rebindable, no restart**: QQ settings → plugins → DSH 调试日志 → 自定义快捷键 — click the field and press the
+combo (`Esc` alone cancels recording); or from code `window.__dshPicker.setHotkeys({ pick: "F8" })` /
+`getHotkeys()`. Changes apply immediately through the same `storage` event used for config sync.
+
+Two measured traps if you re-implement any of this yourself:
+
+1. **Clipboard is a two-path fallback.** `navigator.clipboard.writeText` throws
+   `NotAllowedError: Document is not focused` in QQ windows (Electron 40 requires the document to have focus), so
+   the picker tries the Clipboard API and falls back to `document.execCommand("copy")` — **measured to work in an
+   unfocused window**. Retry-on-failure, never assume one path.
+2. **`local://profile/...` and `local:///...` are two different module instances.** If you `import()` the picker
+   from an `eval.txt` probe you get a *second* instance with its own state — it builds *another* overlay and
+   operates it, while the one on screen does nothing. Use the page's own instance, `window.__dshPicker`
+   (`window.__dshPickerOn` / `__dshPickerBooted` are the liveness flags).
+
+Overlay hygiene, same as any full-window layer (pitfall 10): `pointer-events: none` by default, `auto` **only**
+while picking/boxing and restored immediately, and box mode exits itself after one drag — otherwise the overlay
+eats every click in QQ and the UI looks frozen for no visible reason.
 
 ```js
 // 1) Who is stealing the click / why is a control unreachable
@@ -257,6 +333,28 @@ landed where you aimed with `document.elementFromPoint(x - winLeft, y - winTop)`
     window. If a read-back contradicts itself, suspect this before suspecting QQ.
 16. **`local://` does not work in sandboxed windows** — `import("local://profile/…/x.js?v=" + Date.now())` in an
     `about:blank` window dies on a CORS policy error (§2). For an updated ESM module, restart QQ.
+17. **A non-zero rect does not mean an element is visible — virtual lists keep hidden `measure` copies**
+    **[measured]**. QQ's virtual list (`.viewport-list`) keeps a **measuring copy** inside
+    `.viewport-list__measure` that carries the **same** `.recent-contact-item` class: `visibility: hidden` (still
+    occupying space, `getBoundingClientRect()` fully non-zero) and **full row width** — measured 1029×72 @ (56,92)
+    next to the real row's 304×72 @ (64,100). It therefore slips past **every** geometric guard you would
+    normally write: min-size (`>10px`), size ceiling (`MAX_TARGET = 2000`, and 1029 < 2000 never trips it),
+    `Number.isFinite` NaN checks, and the off-viewport filter — it sits inside the viewport. Symptom when you
+    iterate elements by geometry: a **giant rounded frame** that never scrolls with the list. Always add a
+    visibility guard, and pay for it only once: read `getComputedStyle(el)` in the same pass you already use for
+    `borderTopLeftRadius`, then `if (cs.visibility === "hidden") continue;`. Read the element's **own**
+    `visibility` (a child of a hidden parent that is itself `visibility: visible` really is visible;
+    `display: none` gives a zero rect and is already caught by min-size). Probe: list every match's
+    `w / h / left / visibility / parent.className` and look for the entries whose width dwarfs its siblings.
+    This is the debug module's own origin story — see `examples/lens-skin/LESSONS.md` §19.
+18. **A missing rule is not a broken rule — check that the selector *matches* before blaming precedence**
+    **[measured]**. In the Lens skin, every rule was written as `body.q-theme-tokens-light …`, so on the dark
+    theme (`q-theme-tokens-dark`) **nothing matched at all** and the whole skin silently vanished — which reads
+    like "the plugin is dead", not like a CSS bug. Measure matching (`querySelectorAll(sel).length`) and the
+    computed value under **both** themes before touching specificity. Same family of bug: QQ's native row
+    background lives on a **child** (`.recent-contact-item--top .item__content`, painted from `--overlay_top`
+    with `border-radius: 0`), so rounding the parent alone leaves the child's square corners "peeking out" —
+    use the picker (§3.0) to confirm *which* element actually paints the box, then round both.
 
 ## 7. Work with the user in the loop — use the ask tool, often
 
@@ -290,6 +388,9 @@ their observation as the verdict, not your instrument's.
   approval prompt); if there is none, write the exact test steps and what to report back.
 - **One small decisive test per round.** Not "please test everything" but: "click one chat link, then pick
   ① opens in my system browser ② QQ's internal browser appears ③ nothing happens".
+- **Element questions: send the user to the picker (§3.0), don't probe for them.** It auto-copies to the clipboard
+  and toasts, so the round-trip is one sentence each way: "按 `Ctrl+Shift+C`，点那个看着不对的东西，把剪贴板里的内容贴给我".
+  The user's paste is the evidence — it includes the matched CSS source rules, which no hit-test probe produces.
 - **Announce state-changing steps before doing them** (installing a plugin, patching a file, restarting QQ) and state
   the rollback.
 - Batch independent questions into one call, and keep asking while the mechanism is still unproven.
