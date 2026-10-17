@@ -135,11 +135,26 @@ packaged file.
 
 ## 3. Probes (read-only — write into `eval.txt`)
 
-### 3.0 The element picker — probe first, write `eval.txt` second **[measured]**
+### 3.0 The element picker — hand it to the user, do not write a probe for it **[measured]**
 
 `renderer.js` (v1.4.0) is a Chrome-DevTools-class picker that answers "who draws this box, what is it called,
-how big is it, what is its border-radius, which rules matched it" in one click — reach for it before inventing a
-probe. It is deliberately standalone (no dependency on any other plugin) and needs no settings page.
+how big is it, what is its border-radius, which rules matched it" in one click. **It was built for a human at the
+keyboard, not for you to drive**: one click auto-copies the full details (class / size / radius / background /
+matched CSS source rules) to the clipboard and shows a toast. That is the point — the user does the pointing, the
+answer arrives as text you can read.
+
+**So the default move is: ask the user to use it, then paste what they got — do not reimplement it in a probe.**
+This is §7 applied to element questions:
+
+> "Press `Ctrl+Shift+C` in the main window, click the thing that looks wrong, and paste what lands on your
+> clipboard (it's copied automatically)."
+
+That single exchange replaces several rounds of you guessing selectors from a screenshot. Writing your own
+`elementFromPoint` / hit-test probe instead is the slow path **and** often wrong: the picker reports the
+*matched CSS source rules*, which a raw hit-test cannot.
+
+Only fall back to your own probe when the user cannot run it (no GUI access, unattended run) — and §2's
+read-only rule still applies.
 
 | Action | Effect |
 |---|---|
@@ -350,6 +365,9 @@ their observation as the verdict, not your instrument's.
   approval prompt); if there is none, write the exact test steps and what to report back.
 - **One small decisive test per round.** Not "please test everything" but: "click one chat link, then pick
   ① opens in my system browser ② QQ's internal browser appears ③ nothing happens".
+- **Element questions: send the user to the picker (§3.0), don't probe for them.** It auto-copies to the clipboard
+  and toasts, so the round-trip is one sentence each way: "按 `Ctrl+Shift+C`，点那个看着不对的东西，把剪贴板里的内容贴给我".
+  The user's paste is the evidence — it includes the matched CSS source rules, which no hit-test probe produces.
 - **Announce state-changing steps before doing them** (installing a plugin, patching a file, restarting QQ) and state
   the rollback.
 - Batch independent questions into one call, and keep asking while the mechanism is still unproven.
