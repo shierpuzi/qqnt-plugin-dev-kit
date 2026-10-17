@@ -210,8 +210,8 @@ Cannot bind an API on top of an existing property
 ```text
 main.js        14B58FE71478EEF4BC7C1C3E07259D82C47BFC99CCC2ED2AEAA15664F8A29C60
 manifest.json  B97278333952356A043A7A79EB5545CA76CC02A3CBBDC8CAF0151CF6A49CE3C2
-renderer.js    E562B09EB7881A5305F2234E42826A0211ABC9283605FC107F924E5DC473EA81
+renderer.js    72271FC9CC439FFE52A7AA3705083F749AF7601F8485E89FEF5CC9B20203793D
 ```
 
-`main.js` 的哈希与 v1.3 完全一致 —— v1.4 没有改动主进程脚本。`renderer.js` 是 v1.4 新增，此后修过一次
-（把选中详情以 JSON 字符串写进日志，见 §5.1 的实测坑），所以哈希与 v1.4 首发版本不同。
+`main.js` 的哈希与 v1.3 完全一致 —— v1.4 没有改动主进程脚本。`renderer.js` 是 v1.4 新增，此后修过两次
+（① 把选中详情以 JSON 字符串写进日志，见 §5.1；② 退出拾取时顶部提示条不收起），所以哈希与 v1.4 首发版本不同。

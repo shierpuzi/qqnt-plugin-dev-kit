@@ -250,20 +250,51 @@ const themeName = () => document.body.matches(".q-theme-tokens-dark") ? "dark"
 
 /*
  * 顶部提示条。
- * 【用户反馈】选中之后提示文字一直悬浮在页面上不消失 —— 原因是早期实现
- * 只 show() 不 hide()。所以这里统一加自动关闭：
- * 调用 setHint(text, ms) 时会在 ms 后自动隐藏；传 0 / 负数表示"常驻"，
- * 只在明确需要持续提示的模式（拾取/拖框进行中）才用常驻。
+ *
+ * ===== 为什么改成"从模式状态派生"（本轮重构）=====
+ * 最初是各处自己 setHint(文本) / setHint("")，于是很容易出现
+ * "提示忘了收起"或"提示状态和实际模式对不上"的 bug。实测踩到过两次：
+ *   1. 用自定义快捷键退出拾取时，绿色气泡正常消失，但顶部
+ *      「元素拾取：点击选中…」一直挂着 —— 退出分支只清了选中标记，没清提示。
+ *   2. 多选之后提示条会在 2.6 秒后自己隐藏，可那时【仍在拾取模式】，
+ *      用户失去了"当前在拾取中、Ctrl+Esc 可退出"的线索。
+ * 两者根因相同：提示的显示与隐藏由调用点各自负责，而调用点会漏。
+ *
+ * 现在只有一个出口 applyHint()，它根据当前模式算出该显示什么：
+ *   boxMode → 拖框提示；picking → 拾取提示；否则 → 不显示。
+ * 任何模式变化只需调用 applyHint()，不可能再漏。
+ * 需要临时说一句（"已复制"/"已选中 N 个"）时走 flashHint(text, ms)，
+ * 它会短暂覆盖派生结果，到点自动回到派生文案。
  */
 function setHint(text, ms = 0) {
     ensureDom();
+    // ms > 0 视为"临时覆盖"：显示一下再回到由模式派生的文案
+    if (ms > 0) { flashHint(text, ms); return; }
     clearTimeout(setHint._timer);
     if (!text) { show(els.hint, false); return; }
     els.hint.textContent = text;
     show(els.hint, true);
-    if (ms > 0) {
-        setHint._timer = setTimeout(() => { show(els.hint, false); }, ms);
-    }
+}
+
+/** 临时提示：显示 ms 毫秒后回到"由当前模式派生"的文案（可能是不显示） */
+function flashHint(text, ms) {
+    ensureDom();
+    clearTimeout(setHint._timer);
+    els.hint.textContent = text;
+    show(els.hint, true);
+    setHint._timer = setTimeout(() => { applyHint(); }, ms);
+}
+
+/**
+ * 依据当前模式刷新提示条 —— 唯一的"正常状态"出口。
+ * 模式改变（进/出拾取、进/出拖框）都应调用它，而不是自己拼字符串。
+ */
+function applyHint() {
+    if (!host) return;                 // 覆盖层不存在时不必建层
+    clearTimeout(setHint._timer);
+    if (boxMode) { setHint(`拖动框选：列出框内元素（${hotkeys.exit} 取消）`); return; }
+    if (picking) { setHint(`元素拾取：点击选中，按住 Ctrl 可多选（${hotkeys.exit} 退出）`); return; }
+    setHint("");
 }
 
 function paintHover(el) {
@@ -358,13 +389,20 @@ function selectElement(el, additive) {
     try { window.dispatchEvent(new CustomEvent("dsh:picker-selected", { detail })); } catch { }
 
     /*
-     * 选中后：收起顶部提示条（用户反馈它一直悬浮不消失）。
-     * 单选会随即退出拾取模式，所以提示本就该消失；
-     * 多选时也收起，让气泡（已复制）成为唯一反馈，避免两条信息同时挂在屏幕上。
+     * 选中后的提示处理。
+     *
+     * 【同族 bug，本轮一并修掉】旧实现里多选显示一条 2.6 秒后"自动隐藏"的提示，
+     * 但 2.6 秒后用户【仍在拾取模式】—— 提示消失了，就再也看不到
+     * "正在拾取、Ctrl+Esc 可退出"这条线索，状态与提示脱节。
+     *
+     * 现在分两种情况：
+     *   - 单选：setPicking(false) 会立刻退出拾取，hint 由 applyHint() 收回，无需在此处理；
+     *   - 多选：仍在拾取中，用 flashHint 说一句"已选 N 个"，到点自动【回到拾取提示】
+     *     （而不是消失）。
      */
-    setHint(selected.length > 1
-        ? `已选 ${selected.length} 个（Ctrl+点击 继续增减，${hotkeys.exit} 退出）`
-        : "", selected.length > 1 ? 2600 : 0);
+    if (selected.length > 1) {
+        flashHint(`已选 ${selected.length} 个（Ctrl+点击 继续增减，${hotkeys.exit} 退出）`, 2600);
+    }
 
     // 选中即复制 + 气泡（用户要求）
     copyDetails();
@@ -554,8 +592,7 @@ export function setBoxMode(on) {
     boxMode = !!on && active;
     ensureDom();
     syncOverlayPointerEvents();
-    if (boxMode) setHint("拖动框选：列出框内元素（Ctrl+Esc 取消）");
-    else if (!picking) setHint("");
+    applyHint();
 }
 
 /* ---------- 生命周期 ---------- */
@@ -566,7 +603,7 @@ export function setPicking(on) {
     syncOverlayPointerEvents();
     document.body.style.cursor = picking ? "crosshair" : "";
     if (picking) {
-        setHint(`元素拾取：点击选中，按住 Ctrl 可多选（${hotkeys.exit} 退出）`);
+        applyHint();                    // 进入拾取：显示拾取提示
     } else {
         pickHover = null;
         paintHover(null);
@@ -581,6 +618,20 @@ export function setPicking(on) {
          * 多选时 picking 仍为 true，不走这里，标记保留 —— 符合多选预期。
          */
         scheduleHideSelectionMarks(600);
+
+        /*
+         * 【用户反馈】用自定义快捷键（例如 Alt+C）退出拾取时，绿色气泡"已退出拾取"
+         * 正常消失，但顶部那条「元素拾取：点击选中…」一直挂着不消失。
+         *
+         * 根因：进拾取时把提示条设成了常驻（ms=0），而退出分支只清理选中标记，
+         * 从没把这条提示收起 —— 只有"整个工具被关掉"（stopPicker）才顺带清掉它，
+         * 所以"退出拾取、但工具仍开着"这条路径留下了孤儿提示。
+         *
+         * 修法：统一走 applyHint()（见其文档）。它按当前模式算该显示什么，
+         * 退出拾取后自然变成"不显示"；若同时还在拖框模式，则自动显示拖框提示。
+         * 这样任何模式变化都不会再漏 —— 不再由各调用点自己拼字符串。
+         */
+        applyHint();
     }
 }
 
