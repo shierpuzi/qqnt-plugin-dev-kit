@@ -22,8 +22,12 @@ QQ NT 的插件生态文档很少，而且大多数"经验"只能口口相传。
    console.log（全量）、errors.log（只有报错）、eval-result.log（探针结果）
 3. 想探页面就把 JS 写进 <profile>/data/dsh-debug-logger/eval.txt，
    插件会在所有窗口里执行，结果写进 eval-result.log
-4. 详细流程读 docs/debugging.md；开发插件读 docs/plugin-development.md
-5. 给 agent 的最短路径读 AGENT_README.md（英文）/ AGENT_README_ZH.md（中文）
+4. 想知道"屏幕上那个框是谁画的"：在主界面按 Ctrl+Shift+C 进元素选择器，
+   鼠标划过高亮、点击选中（按住 Ctrl 可多选），详情自动复制到剪贴板；
+   也可在设置页点"开始抓取"。Ctrl+Esc 退出
+   （单独 Esc 被 QQ 占用去关窗口，所以退出键带 Ctrl）
+5. 详细流程读 docs/debugging.md；开发插件读 docs/plugin-development.md
+6. 给 agent 的最短路径读 AGENT_README.md（英文）/ AGENT_README_ZH.md（中文）
 ```
 
 `<profile>` 由环境变量 `LITELOADERQQNT_PROFILE` 决定；没设置时就是 LiteLoaderQQNT 加载器自己的根目录。

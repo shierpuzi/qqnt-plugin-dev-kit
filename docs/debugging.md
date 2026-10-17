@@ -46,11 +46,34 @@
 | 窗口追踪（带**调用栈**） | `browser-window-created` + 包 `BrowserWindow.prototype.show/showInactive/focus/restore/moveTop` —— 专抓"自己弹出来的窗口" |
 | 可选 IPC 频道记录 | 包装 `ipcMain.emit`，只记频道名命中 `/chat|aio|window|show|open|session|switch|focus|activate|recent|contact/i` 的调用，同一 `频道+来源 URL` 1.5 秒去重 |
 | 迷你 devtools（eval 通道） | §3 |
+| **元素选择器**（v1.4 新增） | **§2.1** —— 不用写探针，直接点出屏幕上的元素 |
 
 日志目录 `<profile>/data/dsh-debug-logger/`，四个文件（`console.log` / `errors.log` / `eval-result.log` / `eval.txt`），每个输出文件**超过 5 MB 就截断、只保留尾部 2 MB**（从整行边界开始，并在开头插入 `[已截断，仅保留最近 2 MB]`）。
 
 > 字段含义、行格式、IPC 关键词白名单、安装与停用步骤：**全部以 [`../plugins/dsh-debug-logger/README.md`](../plugins/dsh-debug-logger/README.md) 为准**，本文不复制。
 > 轮转有个实用后果：**要长期留证就先复制走**。本次调试中 `native-menu` 那段异常日志就是被轮转丢掉了，导致无法事后复核（§8.3）。
+
+### 2.1 元素选择器：先"点出来"，再决定要不要写探针
+
+v1.4 起插件带一个类 Chrome DevTools 的元素选择器。**排障顺序建议先用它**：写探针要先假设"该问什么"，而点火柴看不如直接照亮 —— 多数"这个框是谁画的"问题，点一下就清楚了。
+
+| 操作 | 效果 |
+|---|---|
+| 主界面 `Ctrl+Shift+C` | 进入/切换拾取模式（设置页也提供「开始抓取」按钮） |
+| 鼠标划过 | 蓝框高亮 + 顶部显示 `选择器 宽x高 r=圆角` |
+| 点击 | 选中，并把类名 / 尺寸 / 圆角 / 背景 / **样式来源规则**（哪个样式表、哪条选择器）输出到 console |
+| `Ctrl`+点击 | 多选（再次 `Ctrl` 点击同一元素 = 反选） |
+| 选中后 | 详情**自动复制到剪贴板** + 气泡提示 |
+| `Ctrl+Shift+X` | 再复制一次 |
+| `Ctrl+Esc` | 逐级退出（拾取 → 框选 → 关工具） |
+
+三个实测要点（都是踩出来的）：
+
+1. **退出键是 `Ctrl+Esc`，不是 `Esc`**。QQ 自己用 `Esc` 关窗口；占用它会变成"想退出调试反而把窗口关了"。另一个更隐蔽的坑：`KeyboardEvent.key` 的实际值是 `"Escape"`，而配置里习惯写 `"Esc"` —— **直接做字符串比较会永远匹配不上**，必须过一层键名别名（`Esc→escape`、`Del→delete`、`Space→" "` 等）。
+2. **剪贴板要走双路径**。`navigator.clipboard.writeText` 在 QQ 里会抛 `NotAllowedError: Document is not focused`（Electron 要求文档有焦点）。所以要退到 `document.execCommand("copy")` —— 实测该退路对失焦窗口有效。
+3. **`local://profile/...` 与 `local:///E:/...` 是两个不同的模块实例**。用 `eval.txt` 写探针时，请用页面自己的实例（如 `window.__dshPicker`）而不要自己 `import`：否则你操作的是另一份状态，还可能多建一层覆盖层，把结论带偏。
+
+> 选择器的完整用法与自定义快捷键接口见 [`../plugins/dsh-debug-logger/README.md`](../plugins/dsh-debug-logger/README.md) §5。
 
 ---
 

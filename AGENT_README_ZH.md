@@ -28,6 +28,9 @@
    <profile>/data/dsh-debug-logger/eval.txt
    → 插件会在每个窗口执行它 → 结果落在
    <profile>/data/dsh-debug-logger/eval-result.log
+3b) 想直接点出屏幕上的元素（比写探针快）：主界面按 Ctrl+Shift+C 进元素选择器，
+   点击即选中，详情（类名 / 尺寸 / 圆角 / 背景 / 样式来源规则）自动进剪贴板；
+   按住 Ctrl 点击可多选。退出用 Ctrl+Esc —— 单独 Esc 被 QQ 占用去关窗口。
 4) 写插件：从 §6 的骨架开工，并遵守 §3 的硬规则
 5) 排障：先看 errors.log，再照 docs/debugging.md 里的探针配方做
 ```

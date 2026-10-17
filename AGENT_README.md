@@ -28,6 +28,11 @@ development or troubleshooting. Human entry point: [README.md](README.md). Chine
    <profile>/data/dsh-debug-logger/eval.txt
    → the plugin executes it in EVERY window → results land in
    <profile>/data/dsh-debug-logger/eval-result.log
+3b) To point at an on-screen element directly (faster than writing a probe): press
+   Ctrl+Shift+C in the main window to enter the element picker; clicking selects it
+   and copies its details (class / size / radius / background / source rules) to the
+   clipboard; Ctrl+click multi-selects. Exit with Ctrl+Esc — a bare Esc belongs to QQ
+   (it closes the window).
 4) To write a plugin: start from the skeleton in §6 and obey the hard rules in §3
 5) To troubleshoot: read errors.log first, then follow the probe recipes in docs/debugging.md
 ```
